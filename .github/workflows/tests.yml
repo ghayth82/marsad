@@ -31,7 +31,7 @@ jobs:
         with: { node-version: "22" }
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - name: الواجهة: فحص الأنواع والاختبارات والبناء
+      - name: "الواجهة — فحص الأنواع والاختبارات والبناء"
         run: cd frontend && npm ci && npx vitest run && npm run build
       - run: pip install -e "backend[dev]" playwright && python -m playwright install --with-deps chromium
       - name: فحص من طرف إلى طرف في المتصفح
