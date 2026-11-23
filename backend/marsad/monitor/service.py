@@ -59,6 +59,18 @@ def _version(item: Item, change: str, archive: tuple[str, str] | None, at: datet
     return v
 
 
+def _analyze(db: Session, item: Item) -> None:
+    """تجميع القصة والكيانات والتصريحات. أي عطل هنا لا يوقف الرصد."""
+    try:
+        from marsad.analysis.core import analyze_item
+
+        db.flush()
+        with db.begin_nested():
+            analyze_item(db, item)
+    except Exception:
+        log.warning("analysis failed for item %s", item.id, exc_info=True)
+
+
 def _index(item: Item) -> None:
     item.norm = normalize_ar(f"{item.title} {item.text}")
     try:
@@ -97,6 +109,7 @@ def store_entry(db: Session, src: Source, e: dict, fetch_full: bool = True) -> I
                 content_hash=content_hash(title, text), version=1, last_checked_at=now, meta=e.get("meta", {}))
     db.add(item)
     _version(item, "new", archive, now)
+    _analyze(db, item)
     _index(item)
     return item
 
@@ -190,6 +203,7 @@ def recheck_item(db: Session, item: Item) -> str:
     item.status = "edited" if change == "edit" else ("edited" if item.version > 1 else "live")
     item.version += 1
     _version(item, change, archive_html(r.content, now), now)
+    _analyze(db, item)
     _index(item)
     return change
 
