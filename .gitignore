@@ -10,3 +10,4 @@ dist/
 *.egg-info/
 *.db
 e2e/screenshots/
+desktop/build/

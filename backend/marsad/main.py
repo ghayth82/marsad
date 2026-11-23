@@ -79,8 +79,11 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
     if static_dir is None:
         from marsad.core.paths import app_home
 
-        env_static = os.environ.get("MARSAD_STATIC_DIR")
-        static_dir = Path(env_static) if env_static else app_home() / "frontend" / "dist"
+        # بالترتيب: ما يمرّره المُثبِّت، ثم الواجهة بجانب الكود (التطوير والخادم)، ثم بجانب مجلد البرنامج
+        candidates = [os.environ.get("MARSAD_STATIC_DIR"),
+                      Path(__file__).resolve().parents[2] / "frontend" / "dist",
+                      app_home() / "frontend" / "dist"]
+        static_dir = next((Path(c) for c in candidates if c and Path(c).is_dir()), Path(candidates[1]))
     if static_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
 
