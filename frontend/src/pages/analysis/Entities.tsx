@@ -1,0 +1,104 @@
+import { useEffect, useState } from "react";
+import { Link, Route, Routes, useParams } from "react-router-dom";
+import { api } from "../../api";
+
+type E = { id: number; name: string; kind: string; mentions: number; aliases: string[] };
+type St = { id: number; quote: string; said_at: string | null; is_promise: boolean; item_id: number; item_title: string; url: string };
+type Full = E & { tone_by_outlet: { outlet: string; mentions: number; tone: number }[]; statements: St[]; promises: number;
+  contradictions: { reason: string; a: St; b: St }[]; recent_items: { id: number; title: string; outlet: string; captured_at: string }[] };
+
+const KIND: Record<string, string> = { person: "شخص أو منصب", org: "مؤسسة", place: "مكان" };
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("ar") : "—");
+
+export function Entities() {
+  return (
+    <Routes>
+      <Route index element={<List />} />
+      <Route path=":id" element={<EntityPage />} />
+    </Routes>
+  );
+}
+
+function List() {
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("");
+  const [rows, setRows] = useState<E[]>([]);
+  useEffect(() => {
+    const t = setTimeout(() => api<E[]>(`/api/entities?${new URLSearchParams({ q, ...(kind ? { kind } : {}) })}`).then(setRows), 250);
+    return () => clearTimeout(t);
+  }, [q, kind]);
+  return (
+    <section className="card">
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input className="inp" style={{ flex: "1 1 240px" }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث عن شخص أو مؤسسة أو مكان" aria-label="بحث في الكيانات" />
+        <select className="inp" style={{ width: 160 }} value={kind} onChange={(e) => setKind(e.target.value)} aria-label="النوع">
+          <option value="">كل الأنواع</option>{Object.entries(KIND).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+      </div>
+      {rows.map((e) => (
+        <div key={e.id} className="row"><span className="f"><Link to={`/entities/${e.id}`}>{e.name}</Link> <span className="mu">· {KIND[e.kind]}</span></span>
+          <span className="pill p-n">{e.mentions} مادة</span></div>
+      ))}
+      {!rows.length && <span className="mu">لا كيانات بعد. تُستخرج تلقائيًا من المواد المرصودة.</span>}
+    </section>
+  );
+}
+
+function EntityPage() {
+  const { id } = useParams();
+  const [e, setE] = useState<Full | null>(null);
+  const [alias, setAlias] = useState("");
+  const load = () => api<Full>(`/api/entities/${id}`).then(setE);
+  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!e) return null;
+  return (
+    <div className="cols">
+      <div className="grow">
+        <section className="card">
+          <h2>{e.name} <span className="mu">· {KIND[e.kind]}</span></h2>
+          <div className="tabs"><span className="pill p-n">{e.mentions} مادة</span><span className="pill p-n">{e.statements.length} تصريح</span>
+            {e.promises > 0 && <span className="pill p-ac">{e.promises} وعد</span>}{e.contradictions.length > 0 && <span className="pill p-bad">{e.contradictions.length} تناقض محتمل</span>}</div>
+          {!!e.aliases.length && <span className="mu">يُكتب أيضًا: {e.aliases.join("، ")}</span>}
+        </section>
+        {e.contradictions.map((c, k) => (
+          <section key={k} className="card" style={{ borderColor: "var(--bad)" }}>
+            <h3>تناقض محتمل: {c.reason}</h3>
+            <span className="mu">للمراجعة: قد يكون تغيّرًا مبرّرًا في الموقف.</span>
+            <div className="g4" style={{ gridTemplateColumns: "1fr 1fr" }}>
+              {[c.a, c.b].map((s) => <div key={s.id} className="msg warn"><b>{day(s.said_at)}</b><br />«{s.quote}»</div>)}
+            </div>
+          </section>
+        ))}
+        <section className="card">
+          <h2>التصريحات</h2>
+          {e.statements.map((s) => (
+            <div key={s.id} className="row"><span className="f">«{s.quote}»<br /><span className="mu">{day(s.said_at)} · <a href={s.url} target="_blank" rel="noreferrer noopener">{s.item_title}</a></span></span>
+              {s.is_promise && <span className="pill p-ac">وعد</span>}</div>
+          ))}
+          {!e.statements.length && <span className="mu">لا تصريحات منسوبة بعد.</span>}
+        </section>
+      </div>
+      <div className="side">
+        <section className="card">
+          <h2>نبرة التغطية حسب الموقع</h2>
+          <span className="mu">مؤشر لغوي من −1 (سلبية) إلى +1 (إيجابية)، للاستئناس.</span>
+          {e.tone_by_outlet.map((t) => (
+            <div key={t.outlet} className="row"><span className="f">{t.outlet} <span className="mu">({t.mentions})</span></span>
+              <span className={`pill ${t.tone > 0.2 ? "p-ok" : t.tone < -0.2 ? "p-bad" : "p-n"}`}>{t.tone > 0 ? "+" : ""}{t.tone}</span></div>
+          ))}
+        </section>
+        <section className="card">
+          <h2>أسماء بديلة</h2>
+          <form style={{ display: "flex", gap: 6 }} onSubmit={async (ev) => { ev.preventDefault(); await api(`/api/entities/${e.id}`, { method: "PUT", body: { aliases: [...e.aliases, alias] } }); setAlias(""); load(); }}>
+            <input className="inp" value={alias} onChange={(x) => setAlias(x.target.value)} placeholder="كتابة أخرى للاسم" aria-label="اسم بديل" />
+            <button className="btn" disabled={!alias.trim()}>إضافة</button>
+          </form>
+        </section>
+        <section className="card">
+          <h2>آخر المواد</h2>
+          {e.recent_items.map((i) => <div key={i.id} className="row"><span className="f">{i.title}<br /><span className="mu">{i.outlet} · {day(i.captured_at)}</span></span></div>)}
+        </section>
+      </div>
+    </div>
+  );
+}

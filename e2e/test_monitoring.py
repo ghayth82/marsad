@@ -86,6 +86,16 @@ def main() -> int:
         expect(page.get_by_text("المؤسسة العامة للغذاء والدواء").first).to_be_visible()
         expect(page.get_by_role("link", name="النسخة المؤرشفة")).to_be_visible()
         page.screenshot(path=SHOTS / "21-live.png", full_page=True)
+
+        # البند 4: المواد الثلاث عن الحدث نفسه في قصة واحدة، بأول ناشر
+        page.goto(f"{BASE}/stories")
+        expect(page.get_by_text("3 مادة · 1 مصدر")).to_be_visible()
+        page.locator("a[href^=\x27/stories/\x27]").first.click()
+        expect(page.get_by_text("أول ناشر: صحيفة المتصفح")).to_be_visible()
+        expect(page.get_by_role("heading", name="مقارنة الروايات")).to_be_visible()
+        page.screenshot(path=SHOTS / "22-story.png", full_page=True)
+        page.goto(f"{BASE}/entities")
+        expect(page.get_by_role("link", name="المؤسسة العامة")).to_be_visible()
         browser.close()
     print("E2E الرصد: كل الخطوات نجحت")
     return 0

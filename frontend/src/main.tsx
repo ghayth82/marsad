@@ -15,6 +15,8 @@ import { Shell } from "./components/Shell";
 import { SECTIONS, visibleSections } from "./nav";
 import { Admin } from "./pages/admin/Admin";
 import { Engines } from "./pages/engines/Engines";
+import { Entities } from "./pages/analysis/Entities";
+import { Stories } from "./pages/analysis/Stories";
 import { Live } from "./pages/monitor/Live";
 import { Sources } from "./pages/monitor/Sources";
 import { AcceptInvite, Login, Setup } from "./pages/Auth";
@@ -38,7 +40,9 @@ function Routed() {
         <Route path="engines/*" element={allowed.has("/engines") ? <Engines /> : <Navigate to="/" replace />} />
         <Route path="sources" element={allowed.has("/sources") ? <Sources /> : <Navigate to="/" replace />} />
         <Route path="live" element={allowed.has("/live") ? <Live /> : <Navigate to="/" replace />} />
-        {SECTIONS.filter((s) => !["/", "/admin", "/engines", "/sources", "/live"].includes(s.path)).map((s) => (
+        <Route path="stories/*" element={allowed.has("/stories") ? <Stories /> : <Navigate to="/" replace />} />
+        <Route path="entities/*" element={allowed.has("/entities") ? <Entities /> : <Navigate to="/" replace />} />
+        {SECTIONS.filter((s) => !["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities"].includes(s.path)).map((s) => (
           <Route key={s.path} path={s.path.slice(1) + "/*"} element={allowed.has(s.path) ? <Placeholder title={s.ar} /> : <Navigate to="/" replace />} />
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />

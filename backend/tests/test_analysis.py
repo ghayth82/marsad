@@ -104,6 +104,9 @@ def test_copy_without_attribution_vs_attributed(admin, feed):
     rel = {r["outlet"]: r for r in admin.get(f"/api/stories/{sid}").json()["relations"]}
     assert rel["الناسخ"]["kind"] == "نسخ دون نسبة" and rel["الناسخ"]["from_outlet"] == "المصدر الأصلي"
     assert rel["الناقل"]["kind"] == "نقل مع نسبة"
+    again = feed("المصدر الأصلي", t + " (محدّث)", body, published=T0 + timedelta(hours=3))
+    rel2 = {r["item_id"]: r for r in admin.get(f"/api/stories/{sid}").json()["relations"]}
+    assert rel2[again]["kind"] == "من الموقع نفسه"  # لا ينسخ موقع عن نفسه
 
 
 def test_entities_statements_promises_and_contradiction(admin, feed):

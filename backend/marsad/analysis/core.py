@@ -176,7 +176,11 @@ def story_view(db: Session, story: Story) -> dict:
         if idx == 0:
             continue
         norm = normalize_ar(i.text)
-        earlier = items[:idx]
+        earlier = [e for e in items[:idx] if e.outlet_id != i.outlet_id]  # النسخ بين مواقع مختلفة فقط
+        if not earlier:
+            rel.append({"item_id": i.id, "outlet": outlets[i.outlet_id].name, "kind": "من الموقع نفسه",
+                        "from_item_id": None, "from_outlet": None, "similarity": 0.0, "adds": []})
+            continue
         named = [e for e in earlier if normalize_ar(outlets[e.outlet_id].name) in norm]
         best = max(earlier, key=lambda e: similar(e.text[:3000], i.text[:3000]) if e.text and i.text else 0)
         sim = similar(best.text[:3000], i.text[:3000]) if best.text and i.text else 0.0
