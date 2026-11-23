@@ -136,6 +136,14 @@ fn hidden(cmd: &mut Command) -> &mut Command {
     cmd
 }
 
+/// تشغيل أمر دون التقاط مخرجاته (لا يعلق إن ورثها عملية أخرى)، ويعيد هل نجح.
+fn quiet_status(cmd: &mut Command) -> bool {
+    hidden(cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()))
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
 fn free_port(preferred: u16) -> u16 {
     if TcpListener::bind(("127.0.0.1", preferred)).is_ok() {
         return preferred;
@@ -219,18 +227,29 @@ fn start(l: &Layout, report: &dyn Fn(&str)) -> Result<Running, String> {
         r?;
     }
     // نسخة سابقة لم تُغلق بشكل صحيح؟ أوقفها أولًا
-    if hidden(Command::new(&pg_ctl).arg("status").arg("-D").arg(&pg_data)).output().map(|o| o.status.success()).unwrap_or(false) {
-        let _ = hidden(Command::new(&pg_ctl).arg("stop").arg("-D").arg(&pg_data).args(["-m", "fast", "-w"])).output();
+    if quiet_status(Command::new(&pg_ctl).arg("status").arg("-D").arg(&pg_data)) {
+        quiet_status(Command::new(&pg_ctl).arg("stop").arg("-D").arg(&pg_data).args(["-m", "fast", "-w"]));
     }
     let pg_port = free_port(54329);
-    run_quiet(
+    // لا نلتقط مخرجات pg_ctl: خادم القاعدة يرث الأنبوب ويبقيه مفتوحًا فيعلق الانتظار.
+    // سجله في postgres.log.
+    let started = hidden(
         Command::new(&pg_ctl)
             .arg("start").arg("-D").arg(&pg_data)
             .arg("-o").arg(format!("-p {pg_port} -h 127.0.0.1"))
             .arg("-l").arg(logs.join("postgres.log"))
-            .args(["-w", "-t", "90"]),
-        "PostgreSQL",
-    )?;
+            .args(["-w", "-t", "90"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )
+    .status()
+    .map_err(|e| format!("تعذّر تشغيل PostgreSQL: {e}"))?;
+    if !started.success() {
+        let tail = fs::read_to_string(logs.join("postgres.log")).unwrap_or_default();
+        let last: Vec<&str> = tail.lines().rev().take(15).collect();
+        return Err(format!("تعذّر تشغيل قاعدة البيانات:\n{}", last.into_iter().rev().collect::<Vec<_>>().join("\n")));
+    }
     let created = hidden(
         Command::new(pgbin.join(format!("createdb{EXE}")))
             .args(["-h", "127.0.0.1", "-p", &pg_port.to_string(), "-U", "marsad", "marsad"])
@@ -303,7 +322,7 @@ fn stop(mut r: Running) {
         let _ = c.kill();
         let _ = c.wait();
     }
-    let _ = hidden(Command::new(&r.pg_ctl).arg("stop").arg("-D").arg(&r.pg_data).args(["-m", "fast", "-w"])).output();
+    quiet_status(Command::new(&r.pg_ctl).arg("stop").arg("-D").arg(&r.pg_data).args(["-m", "fast", "-w"]));
 }
 
 // ---------- حالة البرنامج والنافذة ----------

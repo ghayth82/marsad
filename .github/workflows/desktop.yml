@@ -79,6 +79,7 @@ jobs:
           Get-ChildItem out | Format-Table Name, Length
 
       - name: "فحص النسخة المحمولة (حالة 42)"
+        timeout-minutes: 8
         run: |
           $p = Start-Process out/Marsad-Portable/marsad.exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
                -RedirectStandardOutput out/portable-selftest.txt -RedirectStandardError out/portable-selftest-err.txt
@@ -87,6 +88,7 @@ jobs:
           if (-not (Test-Path out/Marsad-Portable/data/archive)) { throw "لم تُنشأ مجلدات البيانات" }
 
       - name: "تثبيت صامت على جهاز نظيف ثم فحص (حالة 1)"
+        timeout-minutes: 10
         run: |
           Start-Process out/Marsad-Setup.exe -ArgumentList '/S' -Wait
           $exe = Get-ChildItem "$env:LOCALAPPDATA" -Recurse -Filter marsad.exe -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -106,7 +108,7 @@ jobs:
             out/Marsad-Portable.zip
           retention-days: 30
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() || cancelled()
         with:
           name: desktop-logs
           path: |
