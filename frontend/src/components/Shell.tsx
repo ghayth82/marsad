@@ -36,7 +36,9 @@ export function Shell() {
             <span className="crumb">{me.full_name || me.email}</span>
             <h1>{loc.pathname.startsWith("/me") ? (en ? "My preferences" : "تفضيلاتي") : en ? current.en : current.ar}</h1>
           </div>
-          <input className="search" type="search" placeholder={en ? "Search everything monitored…" : "ابحث بالمعنى في كل ما رُصد…"} aria-label={en ? "Search" : "بحث"} />
+          <form role="search" onSubmit={(e) => { e.preventDefault(); const q = new FormData(e.currentTarget).get("q"); nav(`/live?q=${encodeURIComponent(String(q ?? ""))}`); }}>
+            <input className="search" name="q" type="search" placeholder={en ? "Search everything monitored…" : "ابحث في كل ما رُصد…"} aria-label={en ? "Search" : "بحث"} />
+          </form>
           {activeRoles.length > 1 && (
             <label className="chk" style={{ fontWeight: 600 }}>
               <span>{en ? "View as" : "عرض كـ"}</span>

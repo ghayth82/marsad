@@ -15,6 +15,8 @@ import { Shell } from "./components/Shell";
 import { SECTIONS, visibleSections } from "./nav";
 import { Admin } from "./pages/admin/Admin";
 import { Engines } from "./pages/engines/Engines";
+import { Live } from "./pages/monitor/Live";
+import { Sources } from "./pages/monitor/Sources";
 import { AcceptInvite, Login, Setup } from "./pages/Auth";
 import { Dashboard, Placeholder } from "./pages/Dashboard";
 import { Preferences } from "./pages/Preferences";
@@ -34,7 +36,9 @@ function Routed() {
         <Route path="me" element={<Preferences />} />
         <Route path="admin/*" element={allowed.has("/admin") ? <Admin /> : <Navigate to="/" replace />} />
         <Route path="engines/*" element={allowed.has("/engines") ? <Engines /> : <Navigate to="/" replace />} />
-        {SECTIONS.filter((s) => !["/", "/admin", "/engines"].includes(s.path)).map((s) => (
+        <Route path="sources" element={allowed.has("/sources") ? <Sources /> : <Navigate to="/" replace />} />
+        <Route path="live" element={allowed.has("/live") ? <Live /> : <Navigate to="/" replace />} />
+        {SECTIONS.filter((s) => !["/", "/admin", "/engines", "/sources", "/live"].includes(s.path)).map((s) => (
           <Route key={s.path} path={s.path.slice(1) + "/*"} element={allowed.has(s.path) ? <Placeholder title={s.ar} /> : <Navigate to="/" replace />} />
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />
