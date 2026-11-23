@@ -138,6 +138,12 @@ def check_source(db: Session, src: Source, fetch_full: bool = True) -> dict:
                 db.add(Notification(kind="source.error", text=f"توقف رصد المصدر «{src.title or src.url}»: {src.last_error}"))
             return {"new": 0, "error": src.last_error}
     reader = readers.READERS.get(src.kind)
+    if src.kind == "social":
+        from functools import partial
+
+        from marsad.monitor import social
+
+        reader = partial(social.read_social, db)
     src.last_checked_at = now
     if reader is None:
         src.status = "paused"
@@ -211,7 +217,12 @@ def recheck_item(db: Session, item: Item) -> str:
 def due_sources(db: Session, now: datetime | None = None) -> list[Source]:
     now = now or utcnow()
     out = []
-    for s in db.scalars(select(Source).where(Source.active.is_(True), Source.kind != "social")):
+    from marsad.monitor import social
+
+    ready = {p for p in social.PLATFORMS if social.configured(db, p)}
+    for s in db.scalars(select(Source).where(Source.active.is_(True))):
+        if s.kind == "social" and (s.meta or {}).get("platform") not in ready:
+            continue  # موصل بلا مزوّد: لا فحص حتى يُضاف المفتاح
         if s.last_checked_at is None or s.last_checked_at + timedelta(minutes=s.check_minutes) <= now:
             out.append(s)
     return out

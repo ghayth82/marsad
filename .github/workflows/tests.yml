@@ -48,6 +48,7 @@ jobs:
           MARSAD_E2E_SHOTS=e2e/screenshots python e2e/test_labs.py
           MARSAD_E2E_SHOTS=e2e/screenshots python e2e/test_ratings.py
           MARSAD_E2E_SHOTS=e2e/screenshots python e2e/test_cases.py
+          MARSAD_E2E_SHOTS=e2e/screenshots python e2e/test_social.py
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: e2e-screenshots, path: e2e/screenshots }
@@ -91,6 +92,7 @@ jobs:
           MARSAD_E2E_URL=https://localhost MARSAD_E2E_INSECURE=1 MARSAD_E2E_SHOTS=e2e/screenshots-server python e2e/test_labs.py
           MARSAD_E2E_URL=https://localhost MARSAD_E2E_INSECURE=1 MARSAD_E2E_SHOTS=e2e/screenshots-server python e2e/test_ratings.py
           MARSAD_E2E_URL=https://localhost MARSAD_E2E_INSECURE=1 MARSAD_E2E_SHOTS=e2e/screenshots-server python e2e/test_cases.py
+          MARSAD_E2E_URL=https://localhost MARSAD_E2E_INSECURE=1 MARSAD_E2E_SHOTS=e2e/screenshots-server python e2e/test_social.py
       - name: العامل والنسخ الاحتياطي واختبار الاستعادة
         run: |
           for i in $(seq 1 30); do curl -ks https://localhost/api/health | grep -q '"worker_heartbeat":"' && break; sleep 5; done

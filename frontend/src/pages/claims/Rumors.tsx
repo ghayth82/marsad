@@ -67,6 +67,7 @@ export function Rumors() {
         </section>
       </div>
       <div className="side">
+        <Campaigns />
         {can("claims.create") && (
           <form className="card" onSubmit={add}>
             <h2>ادّعاء جديد</h2>
@@ -88,5 +89,34 @@ export function Rumors() {
         <a className="btn" href="/api/claims/export/csv">تصدير CSV</a>
       </div>
     </div>
+  );
+}
+
+type Cluster = { kind: string; accounts: string[]; count: number; start: string; span_minutes: number; score: number; note: string;
+  items: { id: number; author: string; url: string; title: string; time: string }[] };
+
+/** مؤشرات الحملات المنسّقة على المنصات وتيليغرام. */
+export function Campaigns() {
+  const [d, setD] = useState<{ clusters: Cluster[]; items: number; note: string } | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => { api<typeof d>("/api/social/campaigns?hours=24").then(setD).catch(() => {}); }, []);
+  if (!d) return null;
+  return (
+    <section className="card" aria-label="الحملات المنسّقة">
+      <h2>مؤشرات الحملات المنسّقة · 24 ساعة</h2>
+      <span className="mu" style={{ fontSize: 12 }}>{d.note}</span>
+      {!d.clusters.length && <span className="mu">لا مؤشرات في {d.items} منشورًا من المنصات وتيليغرام.</span>}
+      {d.clusters.map((c, i) => (
+        <div key={i} className="row" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          <button className="btn sm" style={{ justifyContent: "space-between", display: "flex" }} onClick={() => setOpen(open === i ? null : i)}>
+            <span>{c.kind}</span><span className="pill p-warn">{c.accounts.length} حساب · {Math.round(c.span_minutes)} د</span>
+          </button>
+          {open === i && <>
+            <span className="mu" style={{ fontSize: 12 }}>{c.note}</span>
+            {c.items.map((x) => <a key={x.id} href={x.url} target="_blank" rel="noreferrer noopener" style={{ fontSize: 13 }}>@{x.author}: {x.title}</a>)}
+          </>}
+        </div>
+      ))}
+    </section>
   );
 }

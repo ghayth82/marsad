@@ -21,6 +21,7 @@ export function Settings() {
     <div className="cols">
       <div className="grow">{can("system.manage") && <StorageCard />}</div>
       <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <Sanctions />}</div>
+      {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
   );
 }
@@ -120,5 +121,62 @@ function Sanctions() {
       <button className="btn" disabled={!file || !name.trim()}>استيراد</button>
       {msg && <div className="msg" role="status">{msg}</div>}
     </form>
+  );
+}
+
+type Platform = { platform: string; ar: string; provider: string | null; masked: Record<string, string>; fields: Record<string, string[]>; sources: number };
+const FIELD_AR: Record<string, string> = { access_token: "رمز الوصول (Access token)", ig_user_id: "معرّف حساب إنستغرام التجاري", bearer_token: "Bearer token",
+  client_key: "Client key", client_secret: "Client secret", api_token: "مفتاح Apify" };
+
+/** موصلات فيسبوك وإنستغرام وX وتيك توك: مبنية، وتعمل حين يُضاف مفتاح مزوّد أو وصول بحثي. */
+function SocialProviders() {
+  const [d, setD] = useState<{ platforms: Platform[]; providers: Record<string, string>; note: string } | null>(null);
+  const load = () => api<typeof d>("/api/social/providers").then(setD);
+  useEffect(() => { load(); }, []);
+  if (!d) return null;
+  return (
+    <section className="card" aria-label="موصلات التواصل">
+      <h2>موصلات التواصل</h2>
+      <span className="mu" style={{ fontSize: 12 }}>{d.note}</span>
+      {d.platforms.map((p) => <PlatformRow key={p.platform} p={p} providers={d.providers} reload={load} />)}
+    </section>
+  );
+}
+
+function PlatformRow({ p, providers, reload }: { p: Platform; providers: Record<string, string>; reload: () => void }) {
+  const [prov, setProv] = useState(p.provider ?? "");
+  const [creds, setCreds] = useState<Record<string, string>>({});
+  const [handle, setHandle] = useState("");
+  const [msg, setMsg] = useState("");
+  const save = async () => {
+    setMsg("");
+    try { await api(`/api/social/providers/${p.platform}`, { method: "PUT", body: { provider: prov || null, credentials: creds } }); setCreds({}); setMsg(prov ? "حُفظ؛ المفتاح مشفّر." : "أُوقف الموصل."); reload(); }
+    catch (x) { setMsg((x as Error).message); }
+  };
+  const test = async () => {
+    const r = await api<{ ok: boolean; count?: number; error?: string }>(`/api/social/providers/${p.platform}/test`, { method: "POST", body: { handle } });
+    setMsg(r.ok ? `يعمل: ${r.count} منشورًا من @${handle}` : r.error ?? "تعذّر");
+  };
+  return (
+    <div className="row" style={{ flexDirection: "column", alignItems: "stretch" }} data-platform={p.platform}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <b style={{ flex: 1 }}>{p.ar}</b>
+        <span className="mu" style={{ fontSize: 12 }}>{p.sources} مصدر</span>
+        <span className={`pill ${p.provider ? "p-ok" : "p-warn"}`}>{p.provider ? providers[p.provider] : "ينتظر مزوّدًا"}</span>
+      </div>
+      <select className="inp" value={prov} onChange={(e) => setProv(e.target.value)} aria-label={`مزوّد ${p.ar}`}>
+        <option value="">دون مزوّد</option>{Object.entries(providers).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+      </select>
+      {prov && p.fields[prov].map((f) => (
+        <input key={f} className="inp" dir="ltr" type="password" autoComplete="off" value={creds[f] ?? ""} onChange={(e) => setCreds({ ...creds, [f]: e.target.value })}
+               placeholder={p.provider === prov && p.masked[f] ? `${FIELD_AR[f]} · محفوظ ${p.masked[f]}` : FIELD_AR[f]} aria-label={`${FIELD_AR[f]} ${p.ar}`} />
+      ))}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="btn sm" onClick={save}>حفظ</button>
+        {p.provider && <><input className="inp" dir="ltr" style={{ width: 160, height: 32 }} value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="اسم حساب للتجربة" aria-label={`حساب تجربة ${p.ar}`} />
+          <button className="btn sm" disabled={!handle} onClick={test}>جرّب</button></>}
+      </div>
+      {msg && <div className="msg" role="status">{msg}</div>}
+    </div>
   );
 }
