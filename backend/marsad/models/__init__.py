@@ -17,3 +17,4 @@ from marsad.models.monitoring import Item, ItemVersion, Outlet, Source  # noqa: 
 from marsad.models.analysis import Entity, EntityMention, Statement, Story  # noqa: F401
 from marsad.models.claims import Claim, ClaimItem, Evidence, Verdict  # noqa: F401
 from marsad.models.labs import MediaCheck, MediaFile  # noqa: F401
+from marsad.models.ratings import Methodology, Reply, ReviewLabel, Score  # noqa: F401

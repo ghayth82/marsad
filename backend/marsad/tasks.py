@@ -151,3 +151,17 @@ def monitor_recheck(timestamp: int) -> dict:
     finally:
         db.close()
     return dict(out)
+
+
+@bp.periodic(cron="41 2 * * *", periodic_id="ratings-snapshot")
+@bp.task(name="ratings.snapshot", queue="system")
+def ratings_snapshot(timestamp: int) -> int:
+    """كل ليلة: لقطة مؤشرات لكل جهة، تحفظ التطوّر عبر الزمن بإصدار المنهجية."""
+    from marsad.api.ratings import daily_snapshots
+    from marsad.db import get_db
+
+    db = next(get_db())
+    try:
+        return daily_snapshots(db)
+    finally:
+        db.close()

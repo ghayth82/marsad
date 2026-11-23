@@ -20,6 +20,7 @@ import { Stories } from "./pages/analysis/Stories";
 import { Claims } from "./pages/claims/ClaimCard";
 import { Rumors } from "./pages/claims/Rumors";
 import { AudioLab } from "./pages/labs/AudioLab";
+import { Ratings } from "./pages/ratings/Ratings";
 import { MediaLab } from "./pages/labs/MediaLab";
 import { Live } from "./pages/monitor/Live";
 import { Sources } from "./pages/monitor/Sources";
@@ -29,7 +30,7 @@ import { Preferences } from "./pages/Preferences";
 import { SessionProvider, useSession } from "./session";
 
 // الأقسام المبنية؛ ما عداها صفحة «قيد البناء» إلى أن يُبنى.
-const BUILT = new Set(["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities", "/rumors", "/claims", "/media-lab", "/audio-lab"]);
+const BUILT = new Set(["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities", "/rumors", "/claims", "/media-lab", "/audio-lab", "/ratings"]);
 
 function Routed() {
   const { me, loading, needsSetup } = useSession();
@@ -52,6 +53,7 @@ function Routed() {
         <Route path="rumors" element={allowed.has("/rumors") ? <Rumors /> : <Navigate to="/" replace />} />
         <Route path="media-lab/:id?" element={allowed.has("/media-lab") ? <MediaLab /> : <Navigate to="/" replace />} />
         <Route path="audio-lab/:id?" element={allowed.has("/audio-lab") ? <AudioLab /> : <Navigate to="/" replace />} />
+        <Route path="ratings/*" element={allowed.has("/ratings") ? <Ratings /> : <Navigate to="/" replace />} />
         <Route path="claims/*" element={allowed.has("/claims") || allowed.has("/rumors") ? <Claims /> : <Navigate to="/" replace />} />
         {SECTIONS.filter((s) => !BUILT.has(s.path)).map((s) => (
           <Route key={s.path} path={s.path.slice(1) + "/*"} element={allowed.has(s.path) ? <Placeholder title={s.ar} /> : <Navigate to="/" replace />} />
