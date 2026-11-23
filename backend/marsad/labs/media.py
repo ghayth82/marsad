@@ -274,18 +274,20 @@ def check_ocr(db: Session, m: MediaFile, im: Image.Image) -> None:
         return
     g = ImageOps.exif_transpose(im).convert("L")
 
-    def run(img: Image.Image) -> str:
+    def run(img: Image.Image, psm: str) -> str:
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "in.png"
-            ImageOps.expand(img, 30, 255).save(p)  # هامش أبيض: Tesseract يُسقط السطر الملاصق للحافة
-            r = subprocess.run(["tesseract", str(p), "stdout", "-l", "ara+eng", "--psm", "3"], capture_output=True, timeout=120)
+            ImageOps.expand(img, 40, 255).save(p)  # هامش أبيض: Tesseract يُسقط أحيانًا السطر الملاصق للحافة
+            r = subprocess.run(["tesseract", str(p), "stdout", "-l", "ara+eng", "--psm", psm], capture_output=True, timeout=120)
         return " ".join(r.stdout.decode("utf-8", "replace").split())
 
-    text = run(g)
-    if max(g.size) < 700 or len(text) < 15:  # الخط الصغير يُقرأ أفضل بعد تكبير مضاعف
-        big = run(g.resize((g.width * 2, g.height * 2), Image.Resampling.LANCZOS))
-        if len(big) > len(text):
-            text = big
+    # تحليل التخطيط في Tesseract يُسقط أحيانًا سطرًا عربيًا كاملًا، ويختلف ذلك بين إصداراته؛
+    # فنجرّب أكثر من وضع وحجم ونأخذ القراءة الأكثر كلمات.
+    candidates = [run(g, "3"), run(g, "6")]
+    if max(g.size) < 1600:
+        big = g.resize((g.width * 2, g.height * 2), Image.Resampling.LANCZOS)
+        candidates += [run(big, "3"), run(big, "6")]
+    text = max(candidates, key=lambda t: len(t.split()))  # الأكثر كلمات؛ عند التساوي الحجم الأصلي (أقل تشويهًا)
     _add(db, m, "ocr", "—", (f"النص في الصورة: {text[:200]}" if text else "لا نص مقروء في الصورة"), {"text": text})
 
 
