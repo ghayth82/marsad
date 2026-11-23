@@ -83,7 +83,8 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
-def create_all() -> None:
-    import marsad.models  # noqa: F401  تسجيل كل الجداول
+def migrate() -> None:
+    """يطبّق الترحيلات حتى آخر إصدار. يُستدعى عند بدء كل خدمة."""
+    from marsad.migrate import upgrade
 
-    Base.metadata.create_all(get_engine())
+    upgrade(get_engine())

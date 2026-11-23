@@ -20,13 +20,11 @@ def app_env(tmp_path, monkeypatch):
 
     get_settings.cache_clear()
     if url.startswith("postgresql"):
-        from sqlalchemy import create_engine
-
-        import marsad.models  # noqa: F401
-        from marsad.db import Base
+        from sqlalchemy import create_engine, text
 
         eng = create_engine(url)
-        Base.metadata.drop_all(eng)
+        with eng.begin() as conn:  # قاعدة نظيفة تمامًا، بما فيها جدول إصدار الترحيلات
+            conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
         eng.dispose()
     yield
     get_settings.cache_clear()

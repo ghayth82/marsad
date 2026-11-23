@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from marsad.api import admin, auth
 from marsad.core.paths import ensure_storage
-from marsad.db import create_all, get_db, init_engine
+from marsad.db import get_db, init_engine, migrate
 from marsad.rbac.service import seed_builtin_roles
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
@@ -19,7 +19,7 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 def _bootstrap() -> None:
     ensure_storage()
-    create_all()
+    migrate()
     db = next(get_db())
     try:
         seed_builtin_roles(db)
