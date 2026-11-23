@@ -1,0 +1,462 @@
+[
+ {
+  "name": "وكالة الأنباء الأردنية (بترا)",
+  "url": "https://petra.gov.jo",
+  "kind": "official",
+  "country": "الأردن",
+  "tags": [
+   "محلي",
+   "رسمي"
+  ]
+ },
+ {
+  "name": "الرأي",
+  "url": "https://alrai.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "الدستور",
+  "url": "https://www.addustour.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "الغد",
+  "url": "https://alghad.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "عمون",
+  "url": "https://www.ammonnews.net",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "رؤيا",
+  "url": "https://royanews.tv",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "المملكة",
+  "url": "https://www.almamlakatv.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "جوردان تايمز",
+  "url": "https://jordantimes.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "خبرني",
+  "url": "https://www.khaberni.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "السبيل",
+  "url": "https://assabeel.net",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "جو 24",
+  "url": "https://www.jo24.net",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "حبر",
+  "url": "https://www.7iber.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "هلا أخبار",
+  "url": "https://hala.jo",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "سرايا",
+  "url": "https://www.sarayanews.com",
+  "kind": "news",
+  "country": "الأردن",
+  "tags": [
+   "محلي"
+  ]
+ },
+ {
+  "name": "مرصد أكيد",
+  "url": "https://akeed.jo",
+  "kind": "institution",
+  "country": "الأردن",
+  "tags": [
+   "محلي",
+   "تحقق"
+  ]
+ },
+ {
+  "name": "الجزيرة نت",
+  "url": "https://www.aljazeera.net",
+  "kind": "news",
+  "country": "قطر",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "العربية",
+  "url": "https://www.alarabiya.net",
+  "kind": "news",
+  "country": "السعودية",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "سكاي نيوز عربية",
+  "url": "https://www.skynewsarabia.com",
+  "kind": "news",
+  "country": "الإمارات",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "بي بي سي عربي",
+  "url": "https://www.bbc.com/arabic",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عربي",
+   "دولي"
+  ]
+ },
+ {
+  "name": "الشرق الأوسط",
+  "url": "https://aawsat.com",
+  "kind": "news",
+  "country": "السعودية",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "القدس العربي",
+  "url": "https://www.alquds.co.uk",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "العربي الجديد",
+  "url": "https://www.alaraby.co.uk",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "إندبندنت عربية",
+  "url": "https://www.independentarabia.com",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "فرانس 24 عربي",
+  "url": "https://www.france24.com/ar/",
+  "kind": "news",
+  "country": "فرنسا",
+  "tags": [
+   "عربي",
+   "دولي"
+  ]
+ },
+ {
+  "name": "دويتشه فيله عربي",
+  "url": "https://www.dw.com/ar",
+  "kind": "news",
+  "country": "ألمانيا",
+  "tags": [
+   "عربي",
+   "دولي"
+  ]
+ },
+ {
+  "name": "آر تي عربي",
+  "url": "https://arabic.rt.com",
+  "kind": "news",
+  "country": "روسيا",
+  "tags": [
+   "عربي",
+   "دولي"
+  ]
+ },
+ {
+  "name": "سي إن إن عربية",
+  "url": "https://arabic.cnn.com",
+  "kind": "news",
+  "country": "الولايات المتحدة",
+  "tags": [
+   "عربي",
+   "دولي"
+  ]
+ },
+ {
+  "name": "الميادين",
+  "url": "https://www.almayadeen.net",
+  "kind": "news",
+  "country": "لبنان",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "اليوم السابع",
+  "url": "https://www.youm7.com",
+  "kind": "news",
+  "country": "مصر",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "المصري اليوم",
+  "url": "https://www.almasryalyoum.com",
+  "kind": "news",
+  "country": "مصر",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "مصراوي",
+  "url": "https://www.masrawy.com",
+  "kind": "news",
+  "country": "مصر",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "هسبريس",
+  "url": "https://www.hespress.com",
+  "kind": "news",
+  "country": "المغرب",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "النهار",
+  "url": "https://www.annahar.com",
+  "kind": "news",
+  "country": "لبنان",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "عكاظ",
+  "url": "https://www.okaz.com.sa",
+  "kind": "news",
+  "country": "السعودية",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "الخليج",
+  "url": "https://www.alkhaleej.ae",
+  "kind": "news",
+  "country": "الإمارات",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "البيان",
+  "url": "https://www.albayan.ae",
+  "kind": "news",
+  "country": "الإمارات",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "عنب بلدي",
+  "url": "https://www.enabbaladi.net",
+  "kind": "news",
+  "country": "سوريا",
+  "tags": [
+   "عربي"
+  ]
+ },
+ {
+  "name": "الأناضول عربي",
+  "url": "https://www.aa.com.tr/ar",
+  "kind": "news",
+  "country": "تركيا",
+  "tags": [
+   "عربي",
+   "دولي"
+  ]
+ },
+ {
+  "name": "رويترز",
+  "url": "https://www.reuters.com",
+  "kind": "news",
+  "country": "دولي",
+  "tags": [
+   "عالمي"
+  ]
+ },
+ {
+  "name": "أسوشيتد برس",
+  "url": "https://apnews.com",
+  "kind": "news",
+  "country": "دولي",
+  "tags": [
+   "عالمي"
+  ]
+ },
+ {
+  "name": "بي بي سي نيوز",
+  "url": "https://www.bbc.com/news",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عالمي"
+  ]
+ },
+ {
+  "name": "الغارديان",
+  "url": "https://www.theguardian.com/international",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عالمي"
+  ]
+ },
+ {
+  "name": "ميدل إيست آي",
+  "url": "https://www.middleeasteye.net",
+  "kind": "news",
+  "country": "بريطانيا",
+  "tags": [
+   "عالمي"
+  ]
+ },
+ {
+  "name": "المونيتور",
+  "url": "https://www.al-monitor.com",
+  "kind": "news",
+  "country": "الولايات المتحدة",
+  "tags": [
+   "عالمي"
+  ]
+ },
+ {
+  "name": "مسبار",
+  "url": "https://www.misbar.com",
+  "kind": "institution",
+  "country": "دولي",
+  "tags": [
+   "تحقق"
+  ]
+ },
+ {
+  "name": "فتبيّنوا",
+  "url": "https://fatabyyano.net",
+  "kind": "institution",
+  "country": "دولي",
+  "tags": [
+   "تحقق"
+  ]
+ },
+ {
+  "name": "متصدقش",
+  "url": "https://matsda2sh.com",
+  "kind": "institution",
+  "country": "مصر",
+  "tags": [
+   "تحقق"
+  ]
+ },
+ {
+  "name": "تحقق فرانس برس",
+  "url": "https://factcheck.afp.com/ar",
+  "kind": "institution",
+  "country": "دولي",
+  "tags": [
+   "تحقق"
+  ]
+ },
+ {
+  "name": "GDELT: الأردن",
+  "url": "gdelt:Jordan sourcelang:arabic",
+  "kind": "other",
+  "country": "دولي",
+  "tags": [
+   "عالمي",
+   "GDELT"
+  ]
+ },
+ {
+  "name": "GDELT: عمّان",
+  "url": "gdelt:Amman",
+  "kind": "other",
+  "country": "دولي",
+  "tags": [
+   "عالمي",
+   "GDELT"
+  ]
+ }
+]

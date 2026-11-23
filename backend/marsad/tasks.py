@@ -91,3 +91,63 @@ def cleanup_tmp(timestamp: int, max_age_hours: int = 24) -> int:
             f.unlink(missing_ok=True)
             removed += 1
     return removed
+
+
+# ---------- الرصد ----------
+
+@bp.periodic(cron="* * * * *", periodic_id="monitor-tick")
+@bp.task(name="monitor.tick", queue="monitor")
+def monitor_tick(timestamp: int) -> int:
+    """كل دقيقة: يجدول فحص المصادر التي حان موعدها (كل مصدر بتواتره)."""
+    from marsad.db import get_db
+    from marsad.monitor.service import due_sources
+
+    db = next(get_db())
+    try:
+        ids = [s.id for s in due_sources(db)]
+    finally:
+        db.close()
+    for sid in ids:
+        try:
+            check_source_task.configure(queueing_lock=f"source-{sid}").defer(source_id=sid)
+        except Exception:  # فحص معلّق للمصدر نفسه: لا نكرره
+            pass
+    return len(ids)
+
+
+@bp.task(name="monitor.check_source", queue="monitor")
+def check_source_task(source_id: int) -> dict:
+    from marsad.db import get_db
+    from marsad.models.monitoring import Source
+    from marsad.monitor.service import check_source
+
+    db = next(get_db())
+    try:
+        s = db.get(Source, source_id)
+        if s is None or not s.active:
+            return {}
+        r = check_source(db, s)
+        db.commit()
+        return r
+    finally:
+        db.close()
+
+
+@bp.periodic(cron="*/30 * * * *", periodic_id="monitor-recheck")
+@bp.task(name="monitor.recheck", queue="monitor")
+def monitor_recheck(timestamp: int) -> dict:
+    """كل نصف ساعة: إعادة فحص المواد الحديثة لكشف التعديل والحذف."""
+    from collections import Counter
+
+    from marsad.db import get_db
+    from marsad.monitor.service import items_to_recheck, recheck_item
+
+    db = next(get_db())
+    out: Counter = Counter()
+    try:
+        for item in items_to_recheck(db):
+            out[recheck_item(db, item)] += 1
+            db.commit()
+    finally:
+        db.close()
+    return dict(out)
