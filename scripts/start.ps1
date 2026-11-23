@@ -18,6 +18,11 @@ $Marker = '.marsad-data'
 function Say($m)  { Write-Host $m }
 function Warn($m) { Write-Host "تنبيه: $m" -ForegroundColor Yellow }
 function Die($m)  { Write-Host "خطأ: $m" -ForegroundColor Red; exit 1 }
+function Invoke-Quiet([scriptblock]$b) {
+  # أوامر خارجية قد تكتب أخطاء (مثل Docker المتوقف) دون أن توقف السكربت
+  $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  try { & $b 2>&1 | Out-Null } catch { } finally { $ErrorActionPreference = $old }
+}
 function Now()    { (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss+00:00') }
 
 # ---------- 1) ملف الإعدادات والأسرار ----------
@@ -73,7 +78,7 @@ function Save-Config {
 $pending = $cfg.pending
 if ($pending) {
   Say 'يوجد طلب تغيير مكان التخزين: إيقاف الخدمات قبل النسخ...'
-  if (Get-Command docker -ErrorAction SilentlyContinue) { docker compose --env-file .env stop 2>$null | Out-Null }
+  if (Get-Command docker -ErrorAction SilentlyContinue) { Invoke-Quiet { docker compose --env-file .env stop } }
   try {
     if ($pending.data_dir -and $pending.data_dir -ne $cfg.data_dir) {
       $old = Resolve-MarsadPath $cfg.data_dir
@@ -151,11 +156,11 @@ if ($PrepareOnly) { exit 0 }
 
 # ---------- 6) التشغيل، مع استعادة تلقائية على جهاز جديد ----------
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Die 'Docker Desktop غير مثبّت أو غير مشغّل.' }
-docker volume inspect marsad_pgdata 2>$null | Out-Null; $fresh = ($LASTEXITCODE -ne 0)
+Invoke-Quiet { docker volume inspect marsad_pgdata }; $fresh = ($LASTEXITCODE -ne 0)
 docker compose --env-file .env up -d
 if ($LASTEXITCODE -ne 0) { Die 'فشل تشغيل الخدمات؛ تأكد أن Docker Desktop يعمل.' }
 Say 'انتظار قاعدة البيانات...'
-for ($i = 0; $i -lt 60; $i++) { docker compose exec -T postgres pg_isready -U marsad -d marsad 2>$null | Out-Null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep 2 }
+for ($i = 0; $i -lt 60; $i++) { Invoke-Quiet { docker compose exec -T postgres pg_isready -U marsad -d marsad }; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep 2 }
 $latest = Get-ChildItem (Join-Path $BackupRoot 'db') -Filter *.dump -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($fresh -and $latest) {
   Say "جهاز جديد: استعادة آخر نسخة $($latest.Name)"
