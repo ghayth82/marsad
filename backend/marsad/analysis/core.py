@@ -423,3 +423,6 @@ def analyze_item(db: Session, item: Item) -> None:
     if item.story_id is None or not db.get(Story, item.story_id) or not db.get(Story, item.story_id).locked:
         assign_story(db, item)
     process_entities(db, item)
+    from marsad.claims.core import auto_extract
+
+    auto_extract(db, item)  # تسجيل ظهور ادّعاء معروف، وتنبيه عودة شائعة مكشوفة، وادّعاءات من مواد الشائعات
