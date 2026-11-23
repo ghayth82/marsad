@@ -1,0 +1,72 @@
+# مرصد التحقق — نسخة الخادم. يُنشئ install.sh هذا المجلد في /srv/marsad ومعه .env.
+# البيانات:   ./data    (الأرشيف والتصدير والتقارير والسجلات)
+# النسخ:      ./backups (نسخ قاعدة البيانات اليومية)
+# الإعدادات:  ./config  (مكان التخزين ومعلومات الأقراص)
+name: marsad
+
+x-app: &app
+  image: ${MARSAD_IMAGE:-ghcr.io/ghayth82/marsad:latest}
+  restart: unless-stopped
+  env_file: .env
+  environment:
+    MARSAD_DATABASE_URL: postgresql+psycopg://marsad:${POSTGRES_PASSWORD}@postgres:5432/marsad
+    MARSAD_COOKIE_SECURE: "true"
+    MARSAD_MEILI_URL: http://meilisearch:7700
+  volumes:
+    - ./data:/data
+    - ./backups:/backups
+    - ./config:/config
+  depends_on:
+    postgres: { condition: service_healthy }
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      MARSAD_DOMAIN: ${MARSAD_DOMAIN:?}
+      MARSAD_TLS: ${MARSAD_TLS:-internal}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+
+  api:
+    <<: *app
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "marsad.worker"]
+    healthcheck: { disable: true }
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: marsad
+      POSTGRES_DB: marsad
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marsad -d marsad"]
+      interval: 5s
+      retries: 30
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.12
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?}
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_ENV: production
+    volumes: [meilidata:/meili_data]
+
+volumes:
+  pgdata:
+  meilidata:
+  caddy_data:
+  caddy_config:

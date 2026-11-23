@@ -16,6 +16,7 @@ from playwright.sync_api import expect, sync_playwright
 BASE = os.environ.get("MARSAD_E2E_URL", "http://localhost:8000")
 SHOTS = Path(os.environ.get("MARSAD_E2E_SHOTS", "e2e/screenshots"))
 CHROME = os.environ.get("MARSAD_E2E_CHROME")  # مسار Chrome محلي إن وُجد
+INSECURE = os.environ.get("MARSAD_E2E_INSECURE") == "1"  # شهادة داخلية (خادم الشبكة الداخلية)
 
 
 def nav_items(page) -> list[str]:
@@ -26,7 +27,10 @@ def main() -> int:
     SHOTS.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path=CHROME) if CHROME else p.chromium.launch()
-        admin = browser.new_context(viewport={"width": 1440, "height": 900}).new_page()
+        def page(w: int, h: int):
+            return browser.new_context(viewport={"width": w, "height": h}, ignore_https_errors=INSECURE).new_page()
+
+        admin = page(1440, 900)
 
         # 1) أول تشغيل: إنشاء المدير
         admin.goto(BASE)
@@ -61,7 +65,7 @@ def main() -> int:
         admin.screenshot(path=SHOTS / "03-admin-users.png", full_page=True)
 
         # 4) سارة تقبل الدعوة من جهاز آخر
-        sara = browser.new_context(viewport={"width": 1440, "height": 900}).new_page()
+        sara = page(1440, 900)
         sara.goto(link)
         sara.get_by_label("كلمة المرور (10 أحرف على الأقل)").fill("sara-password-1")
         sara.get_by_label("تأكيد كلمة المرور").fill("sara-password-1")
@@ -94,7 +98,7 @@ def main() -> int:
         expect(sara).to_have_url(f"{BASE}/")
 
         # 8) عرض الهاتف
-        phone = browser.new_context(viewport={"width": 390, "height": 844}).new_page()
+        phone = page(390, 844)
         phone.goto(BASE)
         phone.get_by_label("البريد").fill("ghayth@example.com")
         phone.get_by_label("كلمة المرور").fill("correct-horse-1")

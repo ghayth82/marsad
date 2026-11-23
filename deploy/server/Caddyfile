@@ -1,0 +1,16 @@
+# اسم النطاق من .env. MARSAD_TLS = بريدك (شهادة عامة تلقائية) أو internal (شبكة داخلية).
+{$MARSAD_DOMAIN} {
+	tls {$MARSAD_TLS}
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+		-Server
+	}
+	request_body {
+		max_size 2GB
+	}
+	reverse_proxy api:8000
+}

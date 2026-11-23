@@ -76,7 +76,11 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(admin.router)
 
-    static_dir = static_dir or Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    if static_dir is None:
+        from marsad.core.paths import app_home
+
+        env_static = os.environ.get("MARSAD_STATIC_DIR")
+        static_dir = Path(env_static) if env_static else app_home() / "frontend" / "dist"
     if static_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=static_dir / "assets"), name="assets")
 

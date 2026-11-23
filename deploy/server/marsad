@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# أداة إدارة نسخة الخادم: marsad <أمر>
+set -euo pipefail
+MARSAD_DIR="${MARSAD_DIR:-/srv/marsad}"
+cd "$MARSAD_DIR"
+dc() { docker compose "$@"; }
+
+backup() {
+  local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
+  dc exec -T postgres pg_dump -U marsad -d marsad -Fc -f "/backups/db/marsad-$stamp.dump"
+  echo "نسخة قاعدة البيانات: $MARSAD_DIR/backups/db/marsad-$stamp.dump"
+  # الإبقاء على آخر 14 نسخة
+  ls -1t backups/db/*.dump 2>/dev/null | tail -n +15 | xargs -r rm -f
+}
+
+restore_test() {
+  # يستعيد آخر نسخة في قاعدة مؤقتة ويتحقق من الجداول، ثم يحذف القاعدة المؤقتة فقط
+  local latest; latest="$(ls -1t backups/db/*.dump 2>/dev/null | head -n1 || true)"
+  [[ -n "$latest" ]] || { echo "لا توجد نسخة لاختبارها"; exit 1; }
+  dc exec -T postgres sh -c "dropdb -U marsad --if-exists marsad_restore_test && createdb -U marsad marsad_restore_test \
+    && pg_restore -U marsad -d marsad_restore_test --no-owner /backups/db/$(basename "$latest")"
+  local n; n="$(dc exec -T postgres psql -U marsad -d marsad_restore_test -tAc "select count(*) from users")"
+  dc exec -T postgres dropdb -U marsad marsad_restore_test
+  echo "اختبار الاستعادة نجح: $(basename "$latest") — $n مستخدم"
+}
+
+case "${1:-status}" in
+  status)  dc ps; dc exec -T api python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/api/health').read().decode())" ;;
+  update)  backup; dc pull -q; dc up -d; echo "حُدّث البرنامج (أُخذت نسخة احتياطية قبل التحديث)." ;;
+  backup)  backup ;;
+  restore-test) restore_test ;;
+  logs)    dc logs --tail=200 -f "${2:-api}" ;;
+  restart) dc restart ;;
+  stop)    dc stop ;;
+  start)   dc up -d ;;
+  cert)    dc exec -T caddy cat /data/caddy/pki/authorities/local/root.crt ;;
+  *) echo "الاستخدام: marsad {status|update|backup|restore-test|logs [خدمة]|restart|stop|start|cert}"; exit 2 ;;
+esac
