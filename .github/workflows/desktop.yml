@@ -35,7 +35,7 @@ jobs:
           pip install ./backend pyinstaller
           cd backend
           pyinstaller ../desktop/marsad-server.spec --noconfirm --log-level WARN --distpath ../$env:RES --workpath ../desktop/build/work
-          ../$env:RES/marsad-server/marsad-server.exe --help
+          & "../$env:RES/marsad-server/marsad-server.exe" --help
 
       - name: PostgreSQL المضمَّن مع pgvector
         run: |
