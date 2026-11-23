@@ -14,6 +14,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Shell } from "./components/Shell";
 import { SECTIONS, visibleSections } from "./nav";
 import { Admin } from "./pages/admin/Admin";
+import { Engines } from "./pages/engines/Engines";
 import { AcceptInvite, Login, Setup } from "./pages/Auth";
 import { Dashboard, Placeholder } from "./pages/Dashboard";
 import { Preferences } from "./pages/Preferences";
@@ -32,7 +33,8 @@ function Routed() {
         <Route index element={<Dashboard />} />
         <Route path="me" element={<Preferences />} />
         <Route path="admin/*" element={allowed.has("/admin") ? <Admin /> : <Navigate to="/" replace />} />
-        {SECTIONS.filter((s) => s.path !== "/" && s.path !== "/admin").map((s) => (
+        <Route path="engines/*" element={allowed.has("/engines") ? <Engines /> : <Navigate to="/" replace />} />
+        {SECTIONS.filter((s) => !["/", "/admin", "/engines"].includes(s.path)).map((s) => (
           <Route key={s.path} path={s.path.slice(1) + "/*"} element={allowed.has(s.path) ? <Placeholder title={s.ar} /> : <Navigate to="/" replace />} />
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />

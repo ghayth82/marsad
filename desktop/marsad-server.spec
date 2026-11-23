@@ -6,7 +6,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 backend = Path(SPECPATH).parent / "backend"
 datas, binaries, hidden = [], [], []
-for pkg in ("procrastinate", "psycopg", "psycopg_binary", "alembic", "argon2", "uvicorn"):
+for pkg in ("procrastinate", "psycopg", "psycopg_binary", "alembic", "argon2", "uvicorn", "cryptography", "httpx"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
