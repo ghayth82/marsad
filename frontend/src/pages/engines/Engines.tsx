@@ -147,10 +147,10 @@ function RunPage({ data }: { data: EnginesPayload }) {
 }
 
 const PRESETS: Record<string, { provider: string; name: string; model: string; base_url?: string; price_in?: number; price_out?: number; note?: string }> = {
-  claude: { provider: "anthropic", name: "Claude Haiku", model: "claude-haiku-5-5", price_in: 0.1, price_out: 0.5, note: "السعر من صفحة أسعار Claude في الخطة؛ تحقق منه عند الإضافة." },
+  claude: { provider: "anthropic", name: "Claude Haiku", model: "", price_in: 0.1, price_out: 0.5, note: "السعر المقترح لـ Haiku من صفحة أسعار Claude في الخطة؛ تحقق منه، فالمزوّدون لا يرسلون الأسعار مع قائمة النماذج." },
   gemini: { provider: "gemini", name: "Gemini Flash", model: "", note: "انتبه: الطبقة المجانية من Gemini قد تستخدم الطلبات لتحسين منتجات Google. لا ترسل عبرها وثائق حساسة." },
   openai: { provider: "openai", name: "OpenAI", model: "" },
-  ollama: { provider: "ollama", name: "Qwen محلي", model: "", base_url: "http://127.0.0.1:11434/v1", note: "يعمل على جهازك عبر Ollama؛ النص لا يغادر الجهاز. أدخل اسم النموذج كما يظهر في Ollama." },
+  ollama: { provider: "ollama", name: "Qwen محلي", model: "", base_url: "http://127.0.0.1:11434/v1", note: "يعمل على جهازك عبر Ollama؛ النص لا يغادر الجهاز. شغّل Ollama ثم اجلب النماذج المحمّلة فيه." },
   compatible: { provider: "openai_compatible", name: "", model: "", base_url: "" },
 };
 type Draft = { id?: number; name: string; provider: string; model: string; base_url: string; api_key: string; price_in: string; price_out: string; monthly_limit_usd: string; enabled: boolean; note?: string };
@@ -161,6 +161,21 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [tests, setTests] = useState<Record<number, string>>({});
+  const [models, setModels] = useState<{ id: string; label: string }[]>([]);
+  const [modelsErr, setModelsErr] = useState("");
+  const [loadingModels, setLoadingModels] = useState(false);
+  const openDraft = (d: Draft | null) => { setDraft(d); setModels([]); setModelsErr(""); };
+  const fetchModels = async () => {
+    if (!draft) return;
+    setModelsErr(""); setLoadingModels(true);
+    try {
+      const r = await api<{ models: { id: string; label: string }[] }>("/api/engines/models", { method: "POST",
+        body: { provider: draft.provider, api_key: draft.api_key || null, base_url: draft.base_url, engine_id: draft.id ?? null } });
+      setModels(r.models);
+      if (!draft.model && r.models.length) setDraft({ ...draft, model: r.models[0].id });
+    } catch (e) { setModelsErr((e as Error).message); setModels([]); }
+    finally { setLoadingModels(false); }
+  };
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setMsg(null);
     try { await fn(); await reload(); setMsg({ kind: "ok", text: ok }); } catch (e) { setMsg({ kind: "err", text: (e as Error).message }); }
@@ -177,7 +192,7 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
       price_in: numOrNull(draft.price_in), price_out: numOrNull(draft.price_out), monthly_limit_usd: numOrNull(draft.monthly_limit_usd),
       ...(draft.api_key ? { api_key: draft.api_key } : {}) };
     await api(draft.id ? `/api/engines/${draft.id}` : "/api/engines", { method: draft.id ? "PUT" : "POST", body });
-    setDraft(null);
+    openDraft(null);
   }, "حُفظ المحرك. المفتاح محفوظ مشفّرًا ولا يظهر مرة أخرى.");
 
   return (
@@ -206,7 +221,7 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
                 <td>{pct(e.agreement)}{e.decisions ? <span className="mu"> ({e.decisions})</span> : null}</td>
                 <td>{role(e)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <button className="btn sm" onClick={() => setDraft({ id: e.id, name: e.name, provider: e.provider, model: e.model, base_url: e.base_url, api_key: "", price_in: e.price_in?.toString() ?? "", price_out: e.price_out?.toString() ?? "", monthly_limit_usd: e.monthly_limit_usd?.toString() ?? "", enabled: e.enabled })}>تعديل</button>{" "}
+                  <button className="btn sm" onClick={() => openDraft({ id: e.id, name: e.name, provider: e.provider, model: e.model, base_url: e.base_url, api_key: "", price_in: e.price_in?.toString() ?? "", price_out: e.price_out?.toString() ?? "", monthly_limit_usd: e.monthly_limit_usd?.toString() ?? "", enabled: e.enabled })}>تعديل</button>{" "}
                   <button className="btn sm" onClick={async () => { const r = await api<{ ok: boolean; error?: string; model_version?: string }>(`/api/engines/${e.id}/test`, { method: "POST" }); setTests({ ...tests, [e.id]: r.ok ? `يعمل · ${r.model_version}` : r.error ?? "فشل" }); }}>اختبار</button>
                 </td>
               </tr>))}
@@ -250,14 +265,13 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
           {!draft ? (
             <div className="tabs">
               {Object.entries({ claude: "Claude", gemini: "Gemini", openai: "OpenAI", ollama: "محلي (Ollama)", compatible: "مزوّد متوافق" }).map(([k, l]) => (
-                <button key={k} className="btn sm" onClick={() => { const p = PRESETS[k]; setDraft({ ...emptyDraft, ...p, base_url: p.base_url ?? "", price_in: p.price_in?.toString() ?? "", price_out: p.price_out?.toString() ?? "" }); }}>{l}</button>
+                <button key={k} className="btn sm" onClick={() => { const p = PRESETS[k]; openDraft({ ...emptyDraft, ...p, base_url: p.base_url ?? "", price_in: p.price_in?.toString() ?? "", price_out: p.price_out?.toString() ?? "" }); }}>{l}</button>
               ))}
             </div>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); submit(); }} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {draft.note && <div className="msg warn">{draft.note}</div>}
               <label className="fld">الاسم<input className="inp" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
-              <label className="fld">اسم النموذج<input className="inp" dir="ltr" required value={draft.model} onChange={(e) => setDraft({ ...draft, model: e.target.value })} /></label>
               {(draft.provider === "openai_compatible" || draft.provider === "ollama") && (
                 <label className="fld">العنوان<input className="inp" dir="ltr" required value={draft.base_url} onChange={(e) => setDraft({ ...draft, base_url: e.target.value })} placeholder="https://…/v1" /></label>
               )}
@@ -265,6 +279,23 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
                 <label className="fld">المفتاح {draft.id && <span className="mu">(اتركه فارغًا لإبقاء الحالي)</span>}
                   <input className="inp" type="password" dir="ltr" autoComplete="off" value={draft.api_key} onChange={(e) => setDraft({ ...draft, api_key: e.target.value })} /></label>
               )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button type="button" className="btn sm" disabled={loadingModels || (draft.provider !== "ollama" && !draft.api_key && !draft.id)} onClick={fetchModels}>
+                  {loadingModels ? "جارٍ الجلب…" : "جلب النماذج من المزوّد"}
+                </button>
+                {modelsErr && <div className="msg err">{modelsErr}</div>}
+                {models.length > 0 ? (
+                  <label className="fld">النموذج ({models.length})
+                    <select className="inp" dir="ltr" value={draft.model} onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
+                      {!models.some((m) => m.id === draft.model) && draft.model && <option value={draft.model}>{draft.model}</option>}
+                      {models.map((m) => <option key={m.id} value={m.id}>{m.label === m.id ? m.id : `${m.label} — ${m.id}`}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <label className="fld">اسم النموذج <span className="mu">اجلبه من المزوّد أو اكتبه</span>
+                    <input className="inp" dir="ltr" required value={draft.model} onChange={(e) => setDraft({ ...draft, model: e.target.value })} /></label>
+                )}
+              </div>
               {draft.provider !== "ollama" && (
                 <div className="g4" style={{ gridTemplateColumns: "1fr 1fr" }}>
                   <label className="fld">سعر المُدخل ($ لكل مليون رمز)<input className="inp" type="number" min={0} step="any" value={draft.price_in} onChange={(e) => setDraft({ ...draft, price_in: e.target.value })} /></label>
@@ -275,8 +306,8 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
               <label className="chk"><input type="checkbox" checked={draft.enabled} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} />مفعّل</label>
               <div className="tabs">
                 <button className="btn pri">حفظ</button>
-                <button type="button" className="btn" onClick={() => setDraft(null)}>إلغاء</button>
-                {draft.id && <button type="button" className="btn danger" onClick={() => run(async () => { await api(`/api/engines/${draft.id}`, { method: "DELETE" }); setDraft(null); }, "حُذف المحرك.")}>حذف</button>}
+                <button type="button" className="btn" onClick={() => openDraft(null)}>إلغاء</button>
+                {draft.id && <button type="button" className="btn danger" onClick={() => run(async () => { await api(`/api/engines/${draft.id}`, { method: "DELETE" }); openDraft(null); }, "حُذف المحرك.")}>حذف</button>}
               </div>
             </form>
           )}

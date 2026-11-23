@@ -13,7 +13,7 @@ from marsad.audit import record
 from marsad.db import get_db, utcnow
 from marsad.engines import prompts
 from marsad.engines import service as svc
-from marsad.engines.providers import PROVIDERS, ProviderError, complete
+from marsad.engines.providers import PROVIDERS, ProviderError, complete, list_models
 from marsad.models import User
 from marsad.models.engines import Engine, EngineBatch, EngineDecision, Notification
 
@@ -129,6 +129,28 @@ def test_engine(eid: int, _: User = Depends(manage), db: Session = Depends(get_d
     except (ProviderError, ValueError) as err:
         return {"ok": False, "error": str(err)}
     return {"ok": True, "model_version": c.model_version, "reply": c.text[:200]}
+
+
+class ModelsIn(BaseModel):
+    provider: str
+    api_key: str | None = None
+    base_url: str = ""
+    engine_id: int | None = None  # لاستخدام المفتاح المحفوظ عند التعديل دون إعادة كتابته
+
+
+@router.post("/models")
+def models(body: ModelsIn, _: User = Depends(manage), db: Session = Depends(get_db)):
+    """يجلب أسماء النماذج من المزوّد بعد إدخال المفتاح (المزوّدون لا يُرجعون الأسعار)."""
+    key = (body.api_key or "").strip() or None
+    if key is None and body.engine_id:
+        try:
+            key = svc._key(_engine(db, body.engine_id))
+        except ValueError as e:
+            _fail(e, 422)
+    try:
+        return {"models": list_models(body.provider, api_key=key, base_url=body.base_url)}
+    except ProviderError as e:
+        _fail(e, 422)
 
 
 @router.put("/settings/current")

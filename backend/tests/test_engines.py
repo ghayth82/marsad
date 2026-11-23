@@ -219,3 +219,34 @@ def test_provider_error_message(monkeypatch):
     monkeypatch.setattr(httpx, "post", lambda *a, **k: httpx.Response(401, json={"error": {"message": "bad key"}}))
     with pytest.raises(ProviderError, match="المفتاح غير صحيح"):
         complete("anthropic", model="m", system="s", user="u", api_key="x")
+
+
+@pytest.mark.parametrize("provider,reply,expected", [
+    ("anthropic", {"data": [{"id": "claude-haiku-5-5", "display_name": "Claude Haiku 5.5"}]}, ["claude-haiku-5-5"]),
+    ("gemini", {"models": [{"name": "models/gemini-flash-x", "displayName": "Gemini Flash", "supportedGenerationMethods": ["generateContent"]},
+                           {"name": "models/text-embedding-x", "supportedGenerationMethods": ["embedContent"]}]}, ["gemini-flash-x"]),
+    ("openai", {"data": [{"id": "gpt-x"}, {"id": "text-embedding-3-small"}, {"id": "whisper-1"}]}, ["gpt-x"]),
+    ("ollama", {"data": [{"id": "qwen2.5:7b"}]}, ["qwen2.5:7b"]),
+])
+def test_list_models_per_provider(monkeypatch, provider, reply, expected):
+    from marsad.engines.providers import list_models
+
+    monkeypatch.setattr(httpx, "get", lambda url, headers, timeout: httpx.Response(200, json=reply))
+    got = list_models(provider, api_key=None if provider == "ollama" else "KEY")
+    assert [m["id"] for m in got] == expected  # نماذج التضمين والصوت مستبعدة
+
+
+def test_models_endpoint_uses_saved_key(admin, monkeypatch):
+    seen = {}
+
+    def fake_get(url, headers, timeout):
+        seen["headers"] = headers
+        return httpx.Response(200, json={"data": [{"id": "claude-haiku-5-5"}]})
+
+    eid = admin.post("/api/engines", json={"name": "Claude", "provider": "anthropic", "model": "x",
+                                           "api_key": "sk-saved-key-9999", "price_in": 0.1, "price_out": 0.5}).json()["id"]
+    monkeypatch.setattr(httpx, "get", fake_get)
+    r = admin.post("/api/engines/models", json={"provider": "anthropic", "engine_id": eid})
+    assert r.status_code == 200 and r.json()["models"][0]["id"] == "claude-haiku-5-5"
+    assert seen["headers"]["x-api-key"] == "sk-saved-key-9999"
+    assert admin.post("/api/engines/models", json={"provider": "openai"}).status_code == 422  # دون مفتاح

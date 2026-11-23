@@ -122,3 +122,56 @@ def _fake(options: dict, user: str) -> Completion:
     text = out if isinstance(out, str) else json.dumps(out, ensure_ascii=False)
     tin, tout = options.get("fake_tokens", [max(1, len(user) // 3), max(1, len(text) // 3)])
     return Completion(text, int(tin), int(tout), "fake-1")
+
+
+# ---------- جلب قائمة النماذج من المزوّد ----------
+
+# نماذج لا تصلح لمهام النص (تضمين، صوت، صور...) تُستبعد من القائمة
+_NOT_CHAT = ("embed", "tts", "whisper", "dall-e", "moderation", "image", "audio", "realtime", "transcribe",
+             "davinci", "babbage", "aqa", "imagen", "veo", "search")
+
+
+def _get(url: str, headers: dict) -> dict:
+    try:
+        r = httpx.get(url, headers=headers, timeout=httpx.Timeout(30.0, connect=10.0))
+    except httpx.HTTPError as e:
+        raise ProviderError(f"تعذّر الاتصال بالمزوّد: {e.__class__.__name__}") from None
+    if r.status_code >= 400:
+        hint = {401: "المفتاح غير صحيح", 403: "المفتاح لا يملك صلاحية", 404: "العنوان غير صحيح"}.get(r.status_code, "خطأ من المزوّد")
+        raise ProviderError(f"{hint} ({r.status_code})")
+    return r.json()
+
+
+def list_models(provider: str, *, api_key: str | None, base_url: str = "") -> list[dict]:
+    """يجلب النماذج المتاحة لهذا المفتاح، مرتّبة: [{"id": ..., "label": ...}]."""
+    base = (base_url or PROVIDERS.get(provider, {}).get("base_url", "")).rstrip("/")
+    out: list[dict] = []
+    if provider == "fake":
+        return [{"id": "fake-model", "label": "نموذج وهمي"}]
+    if provider != "ollama" and not api_key:
+        raise ProviderError("أدخل المفتاح أولًا لجلب النماذج")
+    if provider == "anthropic":
+        d = _get(f"{base}/v1/models?limit=1000", {"x-api-key": api_key, "anthropic-version": "2023-06-01"})
+        out = [{"id": m["id"], "label": m.get("display_name") or m["id"]} for m in d.get("data", [])]
+    elif provider == "gemini":
+        d = _get(f"{base}/models?pageSize=1000", {"x-goog-api-key": api_key})
+        for m in d.get("models", []):
+            if "generateContent" in (m.get("supportedGenerationMethods") or []):
+                mid = m["name"].removeprefix("models/")
+                out.append({"id": mid, "label": m.get("displayName") or mid})
+    elif provider in ("openai", "openai_compatible", "ollama"):
+        if not base:
+            raise ProviderError("أدخل عنوان المزوّد")
+        try:
+            d = _get(f"{base}/models", {"authorization": f"Bearer {api_key}"} if api_key else {})
+        except ProviderError as e:
+            if provider == "ollama" and "تعذّر الاتصال" in str(e):
+                raise ProviderError("لا يعمل Ollama على هذا العنوان. شغّل برنامج Ollama على الجهاز ثم أعد المحاولة.") from None
+            raise
+        out = [{"id": m["id"], "label": m["id"]} for m in d.get("data", [])]
+    else:
+        raise ProviderError(f"مزوّد غير معروف: {provider}")
+    out = [m for m in out if not any(x in m["id"].lower() for x in _NOT_CHAT)]
+    if not out:
+        raise ProviderError("لم يُرجع المزوّد أي نموذج نصي لهذا المفتاح" + (" (هل حمّلت نموذجًا في Ollama؟)" if provider == "ollama" else ""))
+    return sorted(out, key=lambda m: m["id"])
