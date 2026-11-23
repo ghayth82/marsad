@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { api } from "../../api";
 import { useCan } from "../../session";
 
+// داخل برنامج سطح المكتب: نافذة اختيار مجلد وإعادة تشغيل فورية
+type TauriBridge = { core: { invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> } };
+const tauri = (): TauriBridge | undefined => (window as unknown as { __TAURI__?: TauriBridge }).__TAURI__;
+
 type Disk = { path: string; free_gb: number; total_gb: number; label?: string };
 type Storage = {
   data_dir: string; backup_dir: string; restart_required: boolean;
@@ -62,7 +66,10 @@ function StorageCard() {
       {st.pending ? (
         <div className="msg warn" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span>تغيير معلّق إلى <code dir="ltr">{st.pending.data_dir ?? st.pending.backup_dir}</code> ({st.pending.move_data ? "مع نقل البيانات" : "مجلد جديد فارغ"}). يُطبَّق عند إعادة تشغيل البرنامج، ولا يُحذف المجلد القديم.</span>
-          <button className="btn sm" onClick={async () => setSt(await api<Storage>("/api/admin/storage/pending", { method: "DELETE" }))}>إلغاء الطلب</button>
+          <div className="tabs">
+            {tauri() && <button className="btn sm pri" onClick={() => tauri()!.core.invoke("restart_services")}>أعد التشغيل الآن وطبّق التغيير</button>}
+            <button className="btn sm" onClick={async () => setSt(await api<Storage>("/api/admin/storage/pending", { method: "DELETE" }))}>إلغاء الطلب</button>
+          </div>
         </div>
       ) : (
         <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -77,6 +84,7 @@ function StorageCard() {
             </div>
           )}
           <label className="fld">مجلد البيانات الجديد<input className="inp" dir="ltr" value={f.data_dir} onChange={(e) => setF({ ...f, data_dir: e.target.value })} placeholder="D:\Marsad" /></label>
+          {tauri() && <div><button type="button" className="btn sm" onClick={async () => { const d = await tauri()!.core.invoke<string | null>("pick_folder"); if (d) setF({ ...f, data_dir: d }); }}>اختيار مجلد…</button></div>}
           <label className="chk"><input type="checkbox" checked={f.move_data} onChange={(e) => setF({ ...f, move_data: e.target.checked })} />انقل بياناتي الحالية إليه</label>
           <label className="fld">مجلد النسخ الاحتياطي (قرص خارجي مثلًا)<input className="inp" dir="ltr" value={f.backup_dir} onChange={(e) => setF({ ...f, backup_dir: e.target.value })} placeholder="E:\MarsadBackups" /></label>
           {err && <div className="msg err">{err}</div>}

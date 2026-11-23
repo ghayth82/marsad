@@ -1,0 +1,114 @@
+name: desktop
+# يبني نسخة ويندوز: المُثبِّت Marsad-Setup.exe والنسخة المحمولة، ثم يفحص كلتيهما على جهاز ويندوز نظيف.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run: { shell: pwsh }
+    env:
+      RES: desktop/src-tauri/resources
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: desktop/src-tauri }
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: الواجهة
+        run: |
+          cd frontend; npm ci --no-audit --no-fund; npm run build
+          New-Item -ItemType Directory -Force $env:RES | Out-Null
+          Copy-Item -Recurse dist ../$env:RES/web
+
+      - name: الخادم الداخلي (PyInstaller)
+        run: |
+          pip install ./backend pyinstaller
+          cd backend
+          pyinstaller ../desktop/marsad-server.spec --noconfirm --log-level WARN --distpath ../$env:RES --workpath ../desktop/build/work
+          ../$env:RES/marsad-server/marsad-server.exe --help
+
+      - name: PostgreSQL المضمَّن مع pgvector
+        run: |
+          $src = $env:PGROOT; if (-not $src) { $src = Split-Path -Parent $env:PGBIN }
+          Write-Host "PostgreSQL من: $src"
+          $dst = "$env:RES/pgsql"
+          New-Item -ItemType Directory -Force $dst | Out-Null
+          foreach ($d in 'bin','lib','share','include') { Copy-Item -Recurse "$src/$d" "$dst/$d" }
+          git clone --depth 1 --branch v0.8.0 https://github.com/pgvector/pgvector.git $env:RUNNER_TEMP/pgvector
+          Push-Location $env:RUNNER_TEMP/pgvector
+          $env:PGROOT = (Resolve-Path "$env:GITHUB_WORKSPACE/$dst").Path
+          nmake /NOLOGO /F Makefile.win
+          nmake /NOLOGO /F Makefile.win install
+          Pop-Location
+          Remove-Item -Recurse -Force "$dst/include"
+          Get-ChildItem $dst -Recurse -Include *.pdb | Remove-Item -Force
+          & "$dst/bin/postgres.exe" --version
+          if (-not (Test-Path "$dst/share/extension/vector.control")) { throw "pgvector لم يُثبَّت" }
+
+      - name: Meilisearch
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          $tag = gh api repos/meilisearch/meilisearch/releases --paginate -q '.[].tag_name' | Where-Object { $_ -match '^v1\.12\.\d+$' } | Select-Object -First 1
+          Write-Host "Meilisearch $tag"
+          gh release download $tag -R meilisearch/meilisearch -p meilisearch-windows-amd64.exe -O "$env:RES/meilisearch.exe"
+
+      - name: بناء البرنامج والمُثبِّت (Tauri)
+        run: |
+          cd desktop; npm ci --no-audit --no-fund
+          npx tauri build --bundles nsis
+
+      - name: تجميع النسخة المحمولة
+        run: |
+          $p = "out/Marsad-Portable"
+          New-Item -ItemType Directory -Force $p | Out-Null
+          Copy-Item desktop/src-tauri/target/release/marsad.exe $p/
+          Copy-Item -Recurse $env:RES $p/resources
+          Set-Content -Encoding utf8 $p/portable.txt "نسخة محمولة: البيانات والإعدادات داخل هذا المجلد."
+          Compress-Archive -Path $p -DestinationPath out/Marsad-Portable.zip
+          Copy-Item (Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1) out/Marsad-Setup.exe
+          Get-ChildItem out | Format-Table Name, Length
+
+      - name: "فحص النسخة المحمولة (حالة 42)"
+        run: |
+          $p = Start-Process out/Marsad-Portable/marsad.exe -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
+               -RedirectStandardOutput out/portable-selftest.txt -RedirectStandardError out/portable-selftest-err.txt
+          Get-Content out/portable-selftest.txt, out/portable-selftest-err.txt
+          if ($p.ExitCode -ne 0) { Get-ChildItem -Recurse out/Marsad-Portable/data/logs -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $_"; Get-Content $_ -Tail 40 }; throw "فشل فحص النسخة المحمولة" }
+          if (-not (Test-Path out/Marsad-Portable/data/archive)) { throw "لم تُنشأ مجلدات البيانات" }
+
+      - name: "تثبيت صامت على جهاز نظيف ثم فحص (حالة 1)"
+        run: |
+          Start-Process out/Marsad-Setup.exe -ArgumentList '/S' -Wait
+          $exe = Get-ChildItem "$env:LOCALAPPDATA" -Recurse -Filter marsad.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "لم يُعثر على البرنامج بعد التثبيت" }
+          Write-Host "مثبَّت في: $($exe.FullName)"
+          $p = Start-Process $exe.FullName -ArgumentList '--selftest' -Wait -PassThru -NoNewWindow `
+               -RedirectStandardOutput out/installed-selftest.txt -RedirectStandardError out/installed-selftest-err.txt
+          Get-Content out/installed-selftest.txt, out/installed-selftest-err.txt
+          Get-Content "$env:APPDATA/Marsad/config/storage.json"
+          if ($p.ExitCode -ne 0) { throw "فشل فحص النسخة المثبّتة" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Marsad-Windows
+          path: |
+            out/Marsad-Setup.exe
+            out/Marsad-Portable.zip
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: desktop-logs
+          path: |
+            out/*.txt
+            out/Marsad-Portable/data/logs
