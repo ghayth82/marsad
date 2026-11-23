@@ -1,0 +1,30 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pytest
+      - run: cd backend && python -m pytest -q
+      - name: تجهيز المجلدات على جهاز نظيف
+        run: ./scripts/start.sh --prepare-only && test -d data/archive && test -d data/backups/db
+      - name: صياغة docker-compose
+        run: cp .env.example .env && sed -i 's/^\(POSTGRES_PASSWORD\|MEILI_MASTER_KEY\|MINIO_ROOT_PASSWORD\)=$/\1=x/' .env && docker compose --env-file .env config -q
+  windows-storage:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: start.ps1 -PrepareOnly على ويندوز
+        shell: powershell
+        run: |
+          .\scripts\start.ps1 -PrepareOnly
+          if (-not (Test-Path data\archive)) { exit 1 }
+          New-Item -ItemType Directory -Force config | Out-Null
+          '{"data_dir":"./data","backup_dir":"","pending":{"data_dir":"C:\\MarsadTest\\Data","backup_dir":null,"move_data":true,"requested_by":"ci"},"last_error":null,"history":[]}' | Set-Content -Encoding ascii config\storage.json
+          'x' | Set-Content data\archive\probe.txt
+          .\scripts\start.ps1 -PrepareOnly
+          if (-not (Test-Path C:\MarsadTest\Data\archive\probe.txt)) { exit 1 }
+          if (-not (Test-Path data\archive\probe.txt)) { exit 1 }

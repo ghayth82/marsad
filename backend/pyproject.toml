@@ -1,0 +1,9 @@
+[project]
+name = "marsad"
+version = "0.0.1"
+description = "مرصد التحقق — أداة رصد وتحقق للصحفيين"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
