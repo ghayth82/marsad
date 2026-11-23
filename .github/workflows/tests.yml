@@ -23,6 +23,26 @@ jobs:
         run: ./scripts/start.sh --prepare-only && test -d data/archive && test -d data/backups/db
       - name: صياغة docker-compose
         run: cp .env.example .env && sed -i 's/^\(POSTGRES_PASSWORD\|MEILI_MASTER_KEY\)=$/\1=x/' .env && docker compose --env-file .env config -q
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: الواجهة: فحص الأنواع والاختبارات والبناء
+        run: cd frontend && npm ci && npx vitest run && npm run build
+      - run: pip install -e "backend[dev]" playwright && python -m playwright install --with-deps chromium
+      - name: فحص من طرف إلى طرف في المتصفح
+        run: |
+          mkdir -p /tmp/e2e
+          (cd backend && MARSAD_HOME=/tmp/e2e MARSAD_DATABASE_URL=sqlite:////tmp/e2e/e2e.db python -m uvicorn marsad.main:app --port 8000 &)
+          for i in $(seq 1 30); do curl -sf localhost:8000/api/health && break; sleep 1; done
+          MARSAD_E2E_SHOTS=e2e/screenshots python e2e/test_foundation.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: e2e-screenshots, path: e2e/screenshots }
   windows-storage:
     runs-on: windows-latest
     steps:

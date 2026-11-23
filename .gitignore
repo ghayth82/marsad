@@ -9,3 +9,4 @@ node_modules/
 dist/
 *.egg-info/
 *.db
+e2e/screenshots/

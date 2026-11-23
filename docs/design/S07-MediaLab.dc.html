@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>مختبر الصور والفيديو — مرصد التحقق</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&amp;family=Readex+Pro:wght@400;600;700&amp;family=IBM+Plex+Sans+Arabic:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+.app[data-theme="C"]{--bg:#EEF0F2;--sf:#FFFFFF;--sf2:#F6F7F8;--bd:#DDE1E5;--tx:#18202A;--mu:#5B6673;--nav:#18202A;--navtx:#B7C0CA;--navon:#26313D;--navontx:#FFFFFF;--ac:#0F766E;--acs:#E6F4F2;--act:#0B5A54;--onac:#FFFFFF;--warn:#8A4B00;--warns:#FDF1E1;--bad:#B42318;--bads:#FDECEA;--ok:#146C2E;--oks:#E7F5EC;--font:'Noto Sans Arabic',sans-serif}
+.app[data-theme="B"]{--bg:#F7F5F0;--sf:#FFFFFF;--sf2:#FBFAF7;--bd:#E3DED3;--tx:#1B1B1F;--mu:#5E5A52;--nav:#FFFFFF;--navtx:#4A4A52;--navon:#EAF0FC;--navontx:#173C9E;--ac:#1F4FD1;--acs:#EAF0FC;--act:#173C9E;--onac:#FFFFFF;--warn:#8A4B00;--warns:#FBF0DF;--bad:#B42318;--bads:#FBEAE8;--ok:#146C2E;--oks:#E6F3EA;--font:'Readex Pro','IBM Plex Sans Arabic',sans-serif}
+.app[data-theme="A"]{--bg:#0E1116;--sf:#161B22;--sf2:#1B212A;--bd:#2A313B;--tx:#E6E9ED;--mu:#9AA4B1;--nav:#0A0D11;--navtx:#8D96A2;--navon:#1F2630;--navontx:#F5C46A;--ac:#F5A524;--acs:#3A2C0E;--act:#F5C46A;--onac:#111111;--warn:#F0B35A;--warns:#3A2A10;--bad:#FF7B72;--bads:#3B1717;--ok:#56D364;--oks:#12301A;--font:'IBM Plex Sans Arabic',sans-serif}
+.app{min-height:900px;background:var(--bg);color:var(--tx);font-family:var(--font);display:flex;flex-wrap:wrap;font-size:14px}
+.nav{flex:0 0 92px;background:var(--nav);border-left:1px solid var(--bd);display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 0}
+.logo{width:44px;height:44px;border-radius:12px;background:var(--ac);color:var(--onac);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;margin-bottom:8px}
+.nav a{width:80px;padding:7px 2px;border-radius:10px;color:var(--navtx);text-decoration:none;font-size:11.5px;text-align:center;line-height:1.4}
+.nav a:hover{background:var(--navon)}
+.nav a.on{background:var(--navon);color:var(--navontx);font-weight:700}
+.main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 20px;background:var(--sf);border-bottom:1px solid var(--bd)}
+.crumb{font-size:12px;color:var(--mu)}
+.top h1{margin:0;font-size:19px;flex:1 1 auto}
+.search{height:38px;min-width:220px;border:1px solid var(--bd);border-radius:10px;background:var(--sf2);color:var(--tx);padding:0 12px;font-family:inherit;font-size:13px}
+.seg{display:flex;border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.seg button{height:36px;padding:0 12px;border:none;background:var(--sf);color:var(--mu);font-family:inherit;font-size:12.5px;cursor:pointer}
+.seg button.on{background:var(--ac);color:var(--onac);font-weight:700}
+.av{width:34px;height:34px;border-radius:50%;background:var(--acs);color:var(--act);display:flex;align-items:center;justify-content:center;font-weight:700}
+.body{padding:18px 20px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box}
+.cols{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.grow{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.side{flex:1 1 320px;max-width:400px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h2{margin:0;font-size:15px}
+.card h3{margin:0;font-size:13.5px}
+.mu{color:var(--mu);font-size:12.5px}
+.big{font-size:26px;font-weight:700}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border-bottom:none}
+.row .f{flex:1 1 200px;min-width:0}
+.pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-warn{background:var(--warns);color:var(--warn)}.p-bad{background:var(--bads);color:var(--bad)}.p-ok{background:var(--oks);color:var(--ok)}.p-ac{background:var(--acs);color:var(--act)}.p-n{background:var(--sf2);color:var(--mu);border:1px solid var(--bd)}
+.btn{height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--onac);font-weight:700}
+.btn.sm{height:32px;padding:0 10px;font-size:12px}
+.inp{height:42px;border:1px solid var(--bd);border-radius:10px;background:var(--sf2);color:var(--tx);padding:0 12px;font-family:inherit;font-size:14px;box-sizing:border-box;min-width:0}
+textarea.inp{height:auto;padding:10px;line-height:1.8}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:right;font-weight:600;color:var(--mu);font-size:12px;padding:8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+.meter{height:8px;border-radius:99px;background:var(--sf2);border:1px solid var(--bd);overflow:hidden}
+.meter span{display:block;height:100%;background:var(--ac)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--bd)}
+.tabs span{height:40px;padding:0 14px;display:flex;align-items:center;color:var(--mu);font-size:13.5px}
+.tabs span.on{border-bottom:3px solid var(--ac);color:var(--act);font-weight:700}
+.tl{display:flex;flex-direction:column;gap:0;border-right:2px solid var(--bd);margin-right:6px}
+.tl .it{position:relative;padding:4px 16px 12px 0}
+.tl .it:before{content:"";position:absolute;right:-7px;top:9px;width:12px;height:12px;border-radius:50%;background:var(--sf);border:2px solid var(--ac)}
+.tl .it.first:before{background:var(--ac)}
+.node{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font-size:12.5px;text-align:center}
+.wave{display:flex;align-items:center;gap:2px;height:70px}
+.wave i{flex:1;background:var(--ac);border-radius:2px;opacity:.75}
+.wave i.cut{background:var(--bad);opacity:1}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2);font-size:12.5px}
+.body a:not(.btn){color:var(--act);text-decoration:none;font-weight:600}
+.body a:not(.btn):hover{text-decoration:underline}
+.note{font-size:12px;color:var(--mu);border-right:3px solid var(--ac);padding:6px 10px;background:var(--sf2);border-radius:6px}
+@media (max-width:760px){.g3,.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.nav{flex:1 1 100%;flex-direction:row;overflow-x:auto;border-left:none;border-bottom:1px solid var(--bd)}.nav a{flex:0 0 auto;width:auto;padding:7px 10px}.logo{margin:0 8px 0 0}}
+</style>
+</helmet>
+<div class="app" dir="rtl" data-theme="{{theme}}">
+  <nav class="nav" aria-label="الأقسام">
+    <span class="logo">م</span>
+    <a href="S01-Dashboard.dc.html" class="">الرئيسية</a>
+    <a href="S02-Sources.dc.html" class="">المصادر</a>
+    <a href="S03-Live.dc.html" class="">الرصد</a>
+    <a href="S04-Story.dc.html" class="">القصة</a>
+    <a href="S05-Rumors.dc.html" class="">الشائعات</a>
+    <a href="S06-Claim.dc.html" class="">الادّعاء</a>
+    <a href="S07-MediaLab.dc.html" class="on">الصور والفيديو</a>
+    <a href="S08-AudioLab.dc.html" class="">الصوت</a>
+    <a href="S09-Entity.dc.html" class="">الكيان</a>
+    <a href="S10-Investigation.dc.html" class="">التحقيق</a>
+    <a href="S11-StoryBuilder.dc.html" class="">بناء القصة</a>
+    <a href="S12-Ratings.dc.html" class="">التقييم</a>
+    <a href="S13-Engines.dc.html" class="">المحركات</a>
+    <a href="S14-Admin.dc.html" class="">التقارير والإدارة</a>
+  </nav>
+  <div class="main">
+    <header class="top">
+      <div style="display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0">
+        <span class="crumb">المختبرات › station.jpg</span>
+        <h1>مختبر الصور والفيديو</h1>
+      </div>
+      
+      <input class="search" type="search" placeholder="ابحث بالمعنى في كل ما رُصد…" aria-label="بحث">
+      <div class="seg" role="group" aria-label="نمط الواجهة">
+        <button class="{{onC}}" aria-pressed="{{prC}}" onClick="{{setC}}">ج · مساحة العمل</button>
+        <button class="{{onB}}" aria-pressed="{{prB}}" onClick="{{setB}}">ب · تحريري</button>
+        <button class="{{onA}}" aria-pressed="{{prA}}" onClick="{{setA}}">أ · داكن</button>
+      </div>
+      <span class="av" title="غيث">غ</span>
+    </header>
+    <div class="body">
+
+<div class="cols">
+  <div class="grow">
+    <section class="card"><h2>الملف</h2>
+      <div style="height:240px;border-radius:10px;background:var(--sf2);border:1px dashed var(--bd);display:flex;align-items:center;justify-content:center" class="mu">معاينة الصورة · 1600×1200</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><span class="chip">البصمة: 9f3a…c21</span><span class="chip">أُرشف 07:02</span><span class="chip">المصدر: منشور عام</span></div>
+    </section>
+    <section class="card"><h2>الفحوص</h2>
+      <div class="row"><span class="f"><b>توقيع المصدر (C2PA)</b><br><span class="mu">لا يوجد توقيع</span></span><span class="pill p-n">لا يكفي للحكم</span></div>
+      <div class="row"><span class="f"><b>علامة SynthID</b><br><span class="mu">لم تُكتشف علامة توليد</span></span><span class="pill p-n">لا يكفي للحكم</span></div>
+      <div class="row"><span class="f"><b>البيانات الوصفية</b><br><span class="mu">محذوفة، وهذا شائع في منصات التواصل</span></span><span class="pill p-n">لا يكفي للحكم</span></div>
+      <div class="row"><span class="f"><b>البحث العكسي</b><br><span class="mu">نسخة أقدم بتاريخ 11 آذار 2024 على موقع إخباري</span></span><span class="pill p-ok">دليل قاطع</span></div>
+      <div class="row"><span class="f"><b>النص في الصورة (QARI-OCR)</b><br><span class="mu">«محطة … طريق المطار» · شعار قديم للشركة</span></span><span class="pill p-warn">مؤشر قوي</span></div>
+    </section>
+  </div>
+  <aside class="side">
+    <section class="card"><h2>النتيجة بدرجات الدليل</h2>
+      <span class="pill p-ok" style="align-self:flex-start">دليل قاطع</span>
+      <span style="line-height:1.9">الصورة منشورة قبل نحو 20 شهرًا. لا يمكن الحكم إن كانت مولّدة أو معدّلة، ولا يلزم ذلك هنا.</span>
+      <div class="note">لا تُصدر الأداة حكمًا قاطعًا دون دليل قاطع.</div>
+      <a class="btn pri" href="S06-Claim.dc.html">أرفق بالادّعاء #1042</a>
+      <button class="btn">تقرير التحقق PDF</button>
+    </section>
+    <section class="card"><h2>للفيديو</h2><span class="mu">اللقطات الرئيسية، البحث العكسي لكل لقطة، تحديد الموقع، وكشف إعادة النشر.</span></section>
+  </aside>
+</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["C","B","A"],"default":"C"},"$preview":{"width":1440,"height":900}}'>
+
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { theme: null }; }
+  componentDidMount(){
+    try { const t = window.localStorage.getItem('marsad-theme'); if (t === 'A' || t === 'B' || t === 'C') this.setState({ theme: t }); } catch (e) {}
+  }
+  pick(t){ this.setState({ theme: t }); try { window.localStorage.setItem('marsad-theme', t); } catch (e) {} }
+  renderVals(){
+    const th = this.state.theme || this.props.theme || 'C';
+    return {
+      theme: th,
+      onC: th === 'C' ? 'on' : '', onB: th === 'B' ? 'on' : '', onA: th === 'A' ? 'on' : '',
+      prC: th === 'C' ? 'true' : 'false', prB: th === 'B' ? 'true' : 'false', prA: th === 'A' ? 'true' : 'false',
+      setC: () => this.pick('C'), setB: () => this.pick('B'), setA: () => this.pick('A'),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

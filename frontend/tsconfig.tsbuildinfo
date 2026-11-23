@@ -1,0 +1,1 @@
+{"root":["./src/api.ts","./src/main.tsx","./src/nav.test.ts","./src/nav.ts","./src/session.tsx","./src/components/Frame.tsx","./src/components/Shell.tsx","./src/pages/Auth.tsx","./src/pages/Dashboard.tsx","./src/pages/Preferences.tsx","./src/pages/admin/Admin.tsx","./src/pages/admin/Roles.tsx","./src/pages/admin/System.tsx","./src/pages/admin/Users.tsx"],"version":"5.8.3"}

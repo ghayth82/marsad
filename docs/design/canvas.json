@@ -1,0 +1,248 @@
+{
+"v": 3,
+"createdOnFiles": {
+"v": 1,
+"at": "2026-11-23T14:20:00Z"
+},
+"title": "مرصد التحقق: تصاميم الشاشات",
+"launch": {
+"view": "canvas"
+},
+"pages": [],
+"boards": {
+"Main.dc.html": {
+"x": 1520,
+"y": 5000,
+"w": 1440,
+"h": 900,
+"title": "الخيار أ · غرفة الأخبار الليلية · اللوحة الرئيسية",
+"expand": "fill"
+},
+"A-Claim.dc.html": {
+"x": 0,
+"y": 5000,
+"w": 1440,
+"h": 900,
+"title": "الخيار أ · بطاقة الادّعاء وقرار الصحفي",
+"expand": "fill"
+},
+"B-Dashboard.dc.html": {
+"x": 1520,
+"y": 6300,
+"w": 1440,
+"h": 900,
+"title": "الخيار ب · تحريري فاتح · اللوحة الرئيسية",
+"expand": "fill"
+},
+"B-Claim.dc.html": {
+"x": 0,
+"y": 6300,
+"w": 1440,
+"h": 900,
+"title": "الخيار ب · بطاقة الادّعاء وقرار الصحفي",
+"expand": "fill"
+},
+"C-Dashboard.dc.html": {
+"x": 1520,
+"y": 7600,
+"w": 1440,
+"h": 900,
+"title": "الخيار ج · مساحة التحقيق · اللوحة الرئيسية",
+"expand": "fill"
+},
+"C-Claim.dc.html": {
+"x": 0,
+"y": 7600,
+"w": 1440,
+"h": 900,
+"title": "الخيار ج · بطاقة الادّعاء وقرار الصحفي",
+"expand": "fill"
+},
+"S01-Dashboard.dc.html": {
+"x": 0,
+"y": 0,
+"w": 1440,
+"h": 900,
+"title": "01 · اللوحة الرئيسية",
+"expand": "fill",
+"is_interactive": true
+},
+"S02-Sources.dc.html": {
+"x": 1520,
+"y": 0,
+"w": 1440,
+"h": 900,
+"title": "02 · المصادر",
+"expand": "fill",
+"is_interactive": true
+},
+"S03-Live.dc.html": {
+"x": 3040,
+"y": 0,
+"w": 1440,
+"h": 900,
+"title": "03 · الرصد المباشر",
+"expand": "fill",
+"is_interactive": true
+},
+"S04-Story.dc.html": {
+"x": 4560,
+"y": 0,
+"w": 1440,
+"h": 900,
+"title": "04 · قصة: ارتفاع أسعار المحروقات",
+"expand": "fill",
+"is_interactive": true
+},
+"S05-Rumors.dc.html": {
+"x": 0,
+"y": 1100,
+"w": 1440,
+"h": 900,
+"title": "05 · الشائعات",
+"expand": "fill",
+"is_interactive": true
+},
+"S06-Claim.dc.html": {
+"x": 1520,
+"y": 1100,
+"w": 1440,
+"h": 900,
+"title": "06 · بطاقة الادّعاء",
+"expand": "fill",
+"is_interactive": true
+},
+"S07-MediaLab.dc.html": {
+"x": 3040,
+"y": 1100,
+"w": 1440,
+"h": 900,
+"title": "07 · مختبر الصور والفيديو",
+"expand": "fill",
+"is_interactive": true
+},
+"S08-AudioLab.dc.html": {
+"x": 4560,
+"y": 1100,
+"w": 1440,
+"h": 900,
+"title": "08 · مختبر الصوت",
+"expand": "fill",
+"is_interactive": true
+},
+"S09-Entity.dc.html": {
+"x": 0,
+"y": 2200,
+"w": 1440,
+"h": 900,
+"title": "09 · الكيان: وزارة الطاقة",
+"expand": "fill",
+"is_interactive": true
+},
+"S10-Investigation.dc.html": {
+"x": 1520,
+"y": 2200,
+"w": 1440,
+"h": 900,
+"title": "10 · غرفة التحقيق: عقود صيانة الطرق",
+"expand": "fill",
+"is_interactive": true
+},
+"S11-StoryBuilder.dc.html": {
+"x": 3040,
+"y": 2200,
+"w": 1440,
+"h": 900,
+"title": "11 · بناء القصة",
+"expand": "fill",
+"is_interactive": true
+},
+"S12-Ratings.dc.html": {
+"x": 4560,
+"y": 2200,
+"w": 1440,
+"h": 900,
+"title": "12 · تقييم المواقع",
+"expand": "fill",
+"is_interactive": true
+},
+"S13-Engines.dc.html": {
+"x": 0,
+"y": 3300,
+"w": 1440,
+"h": 900,
+"title": "13 · محركات الذكاء الاصطناعي",
+"expand": "fill",
+"is_interactive": true
+},
+"S14-Admin.dc.html": {
+"x": 1520,
+"y": 3300,
+"w": 1440,
+"h": 900,
+"title": "14 · التقارير والتدريب والإدارة",
+"expand": "fill",
+"is_interactive": true
+}
+},
+"order": [
+"S01-Dashboard.dc.html",
+"S02-Sources.dc.html",
+"S03-Live.dc.html",
+"S04-Story.dc.html",
+"S05-Rumors.dc.html",
+"S06-Claim.dc.html",
+"S07-MediaLab.dc.html",
+"S08-AudioLab.dc.html",
+"S09-Entity.dc.html",
+"S10-Investigation.dc.html",
+"S11-StoryBuilder.dc.html",
+"S12-Ratings.dc.html",
+"S13-Engines.dc.html",
+"S14-Admin.dc.html",
+"Main.dc.html",
+"A-Claim.dc.html",
+"B-Dashboard.dc.html",
+"B-Claim.dc.html",
+"C-Dashboard.dc.html",
+"C-Claim.dc.html"
+],
+"notes": {
+"tA": {
+"x": 0,
+"y": 4720,
+"text": "الخيار أ — غرفة الأخبار الليلية: داكن، كثيف، للرصد الطويل",
+"kind": "title1",
+"maxW": 2960
+},
+"tB": {
+"x": 0,
+"y": 6020,
+"text": "الخيار ب — تحريري فاتح: هادئ، واضح، للقراءة والكتابة",
+"kind": "title1",
+"maxW": 2960
+},
+"tC": {
+"x": 0,
+"y": 7320,
+"text": "الخيار ج — مساحة التحقيق: ثلاثة أعمدة ولوحة فحص جانبية",
+"kind": "title1",
+"maxW": 2960
+},
+"tOld": {
+"x": 0,
+"y": 4440,
+"text": "الخيارات الأولى (للمقارنة فقط)",
+"kind": "title1",
+"maxW": 2960
+},
+"tNew": {
+"x": 0,
+"y": -280,
+"text": "الشاشات الأربع عشرة · بنية ج · بدّل النمط من الزر أعلى كل شاشة (ج، ب، أ)",
+"kind": "title1",
+"maxW": 6080
+}
+},
+"designSystems": []
+}

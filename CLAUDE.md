@@ -46,6 +46,11 @@
 ## الفحص
 
 ```
-cd backend && python -m pytest -q
+cd backend && python -m pytest -q                      # SQLite
+MARSAD_TEST_DATABASE_URL=postgresql+psycopg://... python -m pytest -q   # PostgreSQL
+cd frontend && npx tsc -b && npx vitest run && npm run build
+python e2e/test_foundation.py                          # والخادم يعمل على :8000 بقاعدة فارغة
 ./scripts/start.sh --prepare-only
 ```
+
+تصميم الشاشات المرجعي: `docs/design/` (نسخة من لوحة التصميم). الألوان في `frontend/src/theme.css` مأخوذة منها.
