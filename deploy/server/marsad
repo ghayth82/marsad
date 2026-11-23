@@ -6,7 +6,7 @@ cd "$MARSAD_DIR"
 dc() { docker compose "$@"; }
 
 backup() {
-  local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
+  local stamp; stamp="$(date +%Y%m%d-%H%M%S)-$$"  # لا تستبدل نسخةٌ نسخةً أُخذت في الثانية نفسها
   dc exec -T postgres pg_dump -U marsad -d marsad -Fc -f "/backups/db/marsad-$stamp.dump"
   echo "نسخة قاعدة البيانات: $MARSAD_DIR/backups/db/marsad-$stamp.dump"
   # الإبقاء على آخر 14 نسخة
@@ -22,6 +22,23 @@ restore_test() {
   local n; n="$(dc exec -T postgres psql -U marsad -d marsad_restore_test -tAc "select count(*) from users")"
   dc exec -T postgres dropdb -U marsad marsad_restore_test
   echo "اختبار الاستعادة نجح: $(basename "$latest") — $n مستخدم"
+}
+
+restore() {
+  # استعادة كاملة: تُستبدل قاعدة البيانات بالنسخة (الأحدث أو المذكورة). يُؤخذ قبلها نسخة من الحال الحالي.
+  local f="${1:-}"; [[ -n "$f" ]] || f="$(ls -1t backups/db/*.dump 2>/dev/null | head -n1 || true)"
+  [[ -f "$f" ]] || { echo "لا توجد نسخة للاستعادة"; exit 1; }
+  if [[ "${MARSAD_YES:-}" != "1" ]]; then
+    read -rp "ستُستبدل كل البيانات الحالية بالنسخة $(basename "$f"). اكتب «استعادة» للتأكيد: " ok
+    [[ "$ok" == "استعادة" ]] || { echo "أُلغي"; exit 1; }
+  fi
+  backup
+  dc stop api worker
+  dc exec -T postgres sh -c "dropdb -U marsad --if-exists marsad && createdb -U marsad marsad \
+    && pg_restore -U marsad -d marsad --no-owner /backups/db/$(basename "$f")"
+  dc start api worker
+  for i in $(seq 1 40); do dc exec -T api python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')" 2>/dev/null && break; sleep 3; done
+  echo "استُعيدت النسخة $(basename "$f")."
 }
 
 import_bundle() {
@@ -51,7 +68,8 @@ case "${1:-status}" in
   stop)    dc stop ;;
   start)   dc up -d ;;
   cert)    dc exec -T caddy cat /data/caddy/pki/authorities/local/root.crt ;;
+  restore) restore "${2:-}" ;;
   import)  import_bundle "${2:-}" ;;
   export)  export_bundle ;;
-  *) echo "الاستخدام: marsad {status|update|backup|restore-test|logs [خدمة]|restart|stop|start|cert|import ملف|export}"; exit 2 ;;
+  *) echo "الاستخدام: marsad {status|update|backup|restore-test|logs [خدمة]|restart|stop|start|cert|restore [نسخة]|import ملف|export}"; exit 2 ;;
 esac

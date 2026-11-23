@@ -20,7 +20,7 @@ export function Settings() {
   return (
     <div className="cols">
       <div className="grow">{can("system.manage") && <StorageCard />}</div>
-      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Transfer /><TelegramBot /><ReportSchedule /><Sanctions /></>}</div>
+      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Backups /><Transfer /><TelegramBot /><ReportSchedule /><Sanctions /></>}</div>
       {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
   );
@@ -250,6 +250,41 @@ function Transfer() {
       <button className="btn sm" disabled={busy || pass.length < 8} onClick={go}>{busy ? "يجري التصدير…" : "أنشئ ملف النقل"}</button>
       {err && <div className="msg err">{err}</div>}
       {r && <div className="msg" role="status">{r.records} سجلًا و{r.files} ملفًا ({(r.size / 1048576).toFixed(1)} م.ب) · <a href={`/api/admin/transfer/${r.name}`}>تنزيل</a><br /><span dir="ltr" style={{ fontSize: 11 }}>{r.path}</span></div>}
+    </section>
+  );
+}
+
+/** النسخ الاحتياطي: يومي تلقائيًا (الساعة 03:23)، ونسخة فورية، واستعادة بتأكيد مكتوب ونسخة أمان قبلها. */
+function Backups() {
+  const [rows, setRows] = useState<{ name: string; size: number; at: string }[]>([]);
+  const [sel, setSel] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => api<typeof rows>("/api/admin/backups").then(setRows).catch(() => {});
+  useEffect(() => { load(); }, []);
+  const run = async (f: () => Promise<string>) => { setBusy(true); setMsg(""); try { setMsg(await f()); load(); } catch (x) { setMsg((x as Error).message); } finally { setBusy(false); } };
+  return (
+    <section className="card" aria-label="النسخ الاحتياطي">
+      <h2>النسخ الاحتياطي</h2>
+      <span className="mu" style={{ fontSize: 12 }}>نسخة يومية تلقائية في مجلد النسخ (تُحفظ آخر 14). على الخادم: الأمر marsad backup.</span>
+      <button className="btn sm" disabled={busy} onClick={() => run(async () => { const r = await api<{ name: string }>("/api/admin/backups", { method: "POST" }); return `أُخذت نسخة: ${r.name}`; })}>نسخة الآن</button>
+      {rows.length > 0 && (
+        <>
+          <select className="inp" value={sel} onChange={(e) => setSel(e.target.value)} aria-label="النسخة">
+            <option value="">اختر نسخة للاستعادة…</option>
+            {rows.map((r) => <option key={r.name} value={r.name}>{new Date(r.at).toLocaleString("ar")} · {(r.size / 1024).toFixed(0)} ك.ب</option>)}
+          </select>
+          {sel && <>
+            <input className="inp" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="اكتب «استعادة» للتأكيد" aria-label="تأكيد الاستعادة" />
+            <button className="btn sm" disabled={busy || confirm.trim() !== "استعادة"} onClick={() => run(async () => {
+              const r = await api<{ records: number; safety_copy: string }>("/api/admin/backups/restore", { method: "POST", body: { name: sel, confirm } });
+              return `استُعيدت ${r.records} سجلًا. نسخة الأمان قبلها: ${r.safety_copy}`;
+            })}>استعادة</button>
+          </>}
+        </>
+      )}
+      {msg && <div className="msg" role="status">{msg}</div>}
     </section>
   );
 }

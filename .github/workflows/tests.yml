@@ -104,6 +104,16 @@ jobs:
           curl -ks https://localhost/api/health | grep '"worker_heartbeat":"'
           MARSAD_DIR=/tmp/srv deploy/server/marsad backup
           MARSAD_DIR=/tmp/srv deploy/server/marsad restore-test
+      - name: "الحالة 36: نسخة ثم حذف قاعدة البيانات ثم استعادة"
+        run: |
+          count() { cd /tmp/srv && docker compose exec -T postgres psql -U marsad -d marsad -tAc "select (select count(*) from users)||'/'||(select count(*) from claims)||'/'||(select count(*) from cases)"; }
+          before=$(count); echo "قبل: $before"
+          MARSAD_DIR=/tmp/srv deploy/server/marsad backup
+          cd /tmp/srv && docker compose stop api worker && docker compose exec -T postgres dropdb -U marsad marsad && docker compose exec -T postgres createdb -U marsad marsad
+          cd - && MARSAD_YES=1 MARSAD_DIR=/tmp/srv deploy/server/marsad restore "$(ls -1t /tmp/srv/backups/db/*.dump | head -n1)"
+          after=$(count); echo "بعد: $after"
+          test "$before" = "$after"
+          for i in $(seq 1 30); do curl -ksf https://localhost/api/health && break; sleep 3; done
       - name: السجلات عند الفشل
         if: failure()
         run: cd /tmp/srv && docker compose logs --tail=100

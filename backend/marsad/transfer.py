@@ -8,6 +8,8 @@
 الاستخدام:
     python -m marsad.transfer export ملف.marsad      (عبارة المرور من MARSAD_TRANSFER_PASSPHRASE أو تُطلب)
     python -m marsad.transfer import ملف.marsad      (على نسخة جديدة لم يُنشأ فيها حساب بعد)
+    python -m marsad.transfer backup                 نسخة احتياطية في مجلد النسخ (يوميًا تلقائيًا على الجهاز)
+    python -m marsad.transfer restore [ملف]          استعادة آخر نسخة (أو المذكورة)
 """
 
 from __future__ import annotations
@@ -76,7 +78,7 @@ def _tables():
     return [t for t in Base.metadata.sorted_tables if t.name not in SKIP_TABLES]
 
 
-def export_bundle(engine: Engine, out: Path, passphrase: str) -> dict:
+def export_bundle(engine: Engine, out: Path, passphrase: str, include_files: bool = True) -> dict:
     from marsad.migrate import current_revision
 
     salt = os.urandom(16)
@@ -92,7 +94,7 @@ def export_bundle(engine: Engine, out: Path, passphrase: str) -> dict:
                 counts[t.name] = len(rows)
                 z.writestr(f"tables/{t.name}.jsonl", "\n".join(json.dumps({k: _ser(v) for k, v in r.items()}, ensure_ascii=False) for r in rows))
         files = 0
-        for d in FILE_DIRS:
+        for d in FILE_DIRS if include_files else ():
             base = paths.dirs[d]
             for p in base.rglob("*"):
                 if p.is_file():
@@ -208,10 +210,61 @@ def import_bundle(engine: Engine, src: Path, passphrase: str, force: bool = Fals
     return {"tables": manifest["tables"], "files": files, "from": manifest["created_at"]}
 
 
+# ---------- النسخ الاحتياطي (الجهاز) ----------
+
+KEEP = 14
+
+
+def _backup_pass() -> str:
+    """النسخة المحلية تُفتح بسر البرنامج نفسه، فتُستعاد على الجهاز دون سؤال؛ وعلى جهاز آخر تحتاج ملف السر أو ملف نقل."""
+    return "backup:" + crypto.master_secret()
+
+
+def backup_now(engine: Engine) -> Path:
+    """نسخة من قاعدة البيانات في مجلد النسخ (الأرشيف لا يُنسخ هنا: ملفاته لا تُحذف ولا تتغيّر، ويُنسخ مع ملف النقل)."""
+    d = ensure_storage().backups / "db"
+    d.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    out, n = d / f"marsad-{stamp}.marsad", 1
+    while out.exists():  # نسختان في الثانية نفسها: لا تُستبدل الأولى أبدًا
+        n += 1
+        out = d / f"marsad-{stamp}-{n}.marsad"
+    export_bundle(engine, out, _backup_pass(), include_files=False)
+    for old in sorted(d.glob("marsad-*.marsad"), reverse=True)[KEEP:]:
+        old.unlink(missing_ok=True)
+    return out
+
+
+def list_backups() -> list[Path]:
+    d = ensure_storage().backups / "db"
+    return sorted(d.glob("marsad-*.marsad"), reverse=True) if d.exists() else []
+
+
+def restore_backup(engine: Engine, path: Path) -> dict:
+    """يستبدل كل ما في قاعدة البيانات بالنسخة. للاستعادة بعد عطل أو حذف."""
+    return import_bundle(engine, path, _backup_pass(), force=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     from marsad.db import init_engine, migrate
 
     argv = argv if argv is not None else sys.argv[1:]
+    if argv[:1] == ["backup"]:
+        engine = init_engine()
+        migrate()
+        print(f"النسخة: {backup_now(engine)}")
+        return 0
+    if argv[:1] == ["restore"]:
+        engine = init_engine()
+        migrate()
+        files = list_backups()
+        path = Path(argv[1]) if len(argv) > 1 else (files[0] if files else None)
+        if path is None:
+            print("لا توجد نسخة احتياطية", file=sys.stderr)
+            return 1
+        r = restore_backup(engine, path)
+        print(f"استُعيدت {sum(r['tables'].values())} سجلًا من {path.name}")
+        return 0
     if len(argv) != 2 or argv[0] not in ("export", "import"):
         print(__doc__)
         return 2

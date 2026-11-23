@@ -185,3 +185,16 @@ def alerts_tick(timestamp: int) -> dict:
         return {"made": made, **sent}
     finally:
         db.close()
+
+
+@bp.periodic(cron="23 3 * * *", periodic_id="daily-backup")
+@bp.task(name="storage.backup", queue="system")
+def daily_backup(timestamp: int) -> str:
+    """نسخة احتياطية يومية على الجهاز (الخادم ينسخ بـ pg_dump عبر الأمر marsad backup)."""
+    from marsad.config import get_settings
+    from marsad.db import get_engine
+    from marsad.transfer import backup_now
+
+    if get_settings().mode == "server":
+        return "server"
+    return str(backup_now(get_engine()))

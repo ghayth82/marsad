@@ -351,3 +351,58 @@ def transfer_download(name: str, _: User = Depends(require("system.manage"))):
     if not p.exists():
         raise HTTPException(404, "غير موجود")
     return FileResponse(p, filename=name, media_type="application/octet-stream")
+
+
+# ---------- النسخ الاحتياطي والاستعادة ----------
+
+@router.get("/backups")
+def backups(_: User = Depends(require("system.manage"))):
+    from marsad.transfer import list_backups
+
+    return [{"name": p.name, "size": p.stat().st_size, "at": datetime.fromtimestamp(p.stat().st_mtime).isoformat()} for p in list_backups()]
+
+
+@router.post("/backups")
+def backup_now(actor: User = Depends(require("system.manage")), db: Session = Depends(get_db)):
+    from marsad.audit import record
+    from marsad.db import get_engine
+    from marsad.transfer import backup_now as _b
+
+    p = _b(get_engine())
+    record(db, actor, "backup.create", "file", p.name)
+    db.commit()
+    return {"name": p.name, "size": p.stat().st_size}
+
+
+class RestoreIn(BaseModel):
+    name: str
+    confirm: str
+
+
+@router.post("/backups/restore")
+def restore(body: RestoreIn, actor: User = Depends(require("system.manage")), db: Session = Depends(get_db)):
+    """يستبدل كل البيانات الحالية بالنسخة المختارة. يتطلب كتابة «استعادة» تأكيدًا، ويأخذ نسخة من الحال الحالي أولًا."""
+    from marsad.db import get_engine
+    from marsad.transfer import TransferError, backup_now as _b, list_backups, restore_backup
+
+    if body.confirm.strip() != "استعادة":
+        raise HTTPException(422, "اكتب «استعادة» للتأكيد")
+    match = [p for p in list_backups() if p.name == body.name]
+    if not match:
+        raise HTTPException(404, "النسخة غير موجودة")
+    db.close()
+    safety = _b(get_engine())  # لا يضيع الحال الحالي إن كانت الاستعادة خطأ
+    try:
+        r = restore_backup(get_engine(), match[0])
+    except TransferError as e:
+        raise HTTPException(422, str(e)) from None
+    from marsad.db import get_db as _g
+
+    s = next(_g())
+    from marsad.audit import record
+
+    record(s, None, "backup.restore", "file", body.name, after={"by": actor.email, "safety_copy": safety.name})
+    s.commit()
+    s.close()
+    return {"restored": body.name, "records": sum(r["tables"].values()), "safety_copy": safety.name,
+            "note": "استُعيدت البيانات. سجّل الدخول من جديد إن طُلب منك."}
