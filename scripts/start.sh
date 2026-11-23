@@ -14,7 +14,7 @@ die()  { printf 'خطأ: %s\n' "$*" >&2; exit 1; }
 
 # 1) ملف الإعدادات وتوليد الأسرار الناقصة
 if [[ ! -f .env ]]; then cp .env.example .env; say "أُنشئ ملف .env من النموذج."; fi
-for key in POSTGRES_PASSWORD MEILI_MASTER_KEY MINIO_ROOT_PASSWORD MARSAD_SECRET_KEY; do
+for key in POSTGRES_PASSWORD MEILI_MASTER_KEY MARSAD_SECRET_KEY; do
   if grep -qE "^${key}=\s*$" .env || ! grep -qE "^${key}=" .env; then
     val="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 40 || true)"
     if grep -qE "^${key}=" .env; then

@@ -1,4 +1,5 @@
-﻿# مرصد التحقق — التشغيل على ويندوز (Docker Desktop).
+﻿# مرصد التحقق — أداة تطوير مؤقتة على ويندوز (Docker Desktop).
+# المستخدم النهائي لا يحتاجها: المُثبِّت Marsad-Setup.exe يحل محلها.
 #   .\scripts\start.ps1               تجهيز المجلدات ثم تشغيل كل الخدمات
 #   .\scripts\start.ps1 -PrepareOnly  تجهيز المجلدات فقط وطباعة أماكنها
 # نفس منطق backend/marsad/core/storage_config.py (المرجع المُختبر)، لأن
@@ -25,7 +26,7 @@ $envLines = [Collections.Generic.List[string]]([IO.File]::ReadAllLines((Join-Pat
 $chars = [char[]]'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 function New-Secret { $b = New-Object byte[] 40; $rng.GetBytes($b); -join ($b | ForEach-Object { $chars[$_ % $chars.Length] }) }
-foreach ($key in 'POSTGRES_PASSWORD','MEILI_MASTER_KEY','MINIO_ROOT_PASSWORD','MARSAD_SECRET_KEY') {
+foreach ($key in 'POSTGRES_PASSWORD','MEILI_MASTER_KEY','MARSAD_SECRET_KEY') {
   $i = $envLines.FindIndex({ param($l) $l -match "^$key=" })
   if ($i -lt 0) { $envLines.Add("$key=$(New-Secret)"); Say "وُلّد $key تلقائيًا." }
   elseif ($envLines[$i] -match "^$key=\s*$") { $envLines[$i] = "$key=$(New-Secret)"; Say "وُلّد $key تلقائيًا." }

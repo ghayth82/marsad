@@ -1,13 +1,11 @@
-# مرصد التحقق — طبقة البنية التحتية.
-# لا تُشغَّل مباشرة؛ استخدم scripts/start.ps1 (ويندوز) أو scripts/start.sh (لينكس)
-# لأنهما يحددان مكان البيانات وينشئان المجلدات قبل التشغيل.
+# مرصد التحقق — نسخة الخادم (وبيئة التطوير). نسخة الجهاز لا تستخدم Docker.
+# تُشغَّل عبر scripts/start.sh الذي يحدد مكان البيانات وينشئ المجلدات أولًا.
 #
 # أين تذهب البيانات:
-#   ${MARSAD_DATA_ROOT}/archive  <- MinIO (الصفحات المؤرشفة، الصور، الفيديو، الوثائق)
-#   ${MARSAD_BACKUP_ROOT}        <- نسخ قاعدة البيانات اليومية
-#   قاعدة البيانات والبحث والطابور داخل مجلدات Docker (volumes) لأسباب أداء
-#   وصلاحيات على ويندوز، وتُحفظ نسخها في مجلد النسخ الاحتياطي، وتُستعاد
-#   تلقائيًا عند التشغيل على جهاز جديد.
+#   ${MARSAD_DATA_ROOT}   <- /data في الخادم والعمّال (الأرشيف مجلد عادي فيه)
+#   ${MARSAD_BACKUP_ROOT} <- نسخ قاعدة البيانات اليومية
+#   قاعدة البيانات والبحث داخل مجلدات Docker، ونسخها في مجلد النسخ الاحتياطي.
+#   الطابور داخل PostgreSQL، فلا Redis.
 
 name: marsad
 
@@ -28,12 +26,6 @@ services:
       interval: 5s
       retries: 20
 
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes: [redisdata:/data]
-    ports: ["127.0.0.1:6379:6379"]
-
   meilisearch:
     image: getmeili/meilisearch:v1.12
     restart: unless-stopped
@@ -43,17 +35,6 @@ services:
     volumes: [meilidata:/meili_data]
     ports: ["127.0.0.1:7700:7700"]
 
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: marsad
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
-    volumes:
-      - ${MARSAD_DATA_ROOT:-./data}/archive:/data
-    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
-
   # الخادم والعمّال والواجهة تُضاف في بند «الأساس»؛ كلها ترى جذر البيانات على /data
   # وتستدعي marsad.core.paths.ensure_storage() عند البدء:
   #   volumes: ["${MARSAD_DATA_ROOT}:/data", "${MARSAD_BACKUP_ROOT}:/backups"]
@@ -61,5 +42,4 @@ services:
 
 volumes:
   pgdata:
-  redisdata:
   meilidata:

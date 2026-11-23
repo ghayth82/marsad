@@ -33,8 +33,15 @@
 - أي مجلد جديد يُضاف في `SUBDIRS` في `paths.py` فقط، فيُنشأ تلقائيًا في كل مكان.
 - الحاويات ترى جذر البيانات على `/data` والنسخ على `/backups`، عبر `MARSAD_DATA_DIR` و`MARSAD_BACKUP_DIR`.
 - تغيير المكان يمر فقط عبر `request_change()` (الواجهة) و`apply_pending()` (سكربت التشغيل). لا يُحذف المجلد القديم.
-- أي تعديل في منطق `storage_config.py` يُنقل إلى `scripts/start.ps1` أيضًا، لأنه نسخة PowerShell من المنطق نفسه.
+- `scripts/start.ps1` و`start.bat` أدوات تطوير مؤقتة؛ المُثبِّت (Tauri) يستدعي منطق Python مباشرة. ما دام `start.ps1` موجودًا، أي تعديل في `storage_config.py` يُنقل إليه.
 - التفاصيل: `docs/STORAGE.md`.
+
+## البنية المعتمدة (23 نوفمبر 2026)
+
+- **على الجهاز:** مُثبِّت ويندوز بملف واحد (Tauri) ونسخة محمولة، دون Docker ولا سكربتات. PostgreSQL وMeilisearch مضمَّنان، والطابور داخل PostgreSQL، والأرشيف مجلد عادي.
+- **على الخادم:** الكود نفسه بـ Docker Compose + Caddy (`docs/SERVER.md`).
+- **مستخدمون متعددون، كل واحد بواجهته:** التفضيلات في قاعدة البيانات (`docs/PLAN.md`: «المستخدمون وواجهاتهم»).
+- لا Redis ولا MinIO.
 
 ## الفحص
 
