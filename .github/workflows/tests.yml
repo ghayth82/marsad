@@ -25,6 +25,15 @@ jobs:
           New-Item -ItemType Directory -Force config | Out-Null
           '{"data_dir":"./data","backup_dir":"","pending":{"data_dir":"C:\\MarsadTest\\Data","backup_dir":null,"move_data":true,"requested_by":"ci"},"last_error":null,"history":[]}' | Set-Content -Encoding ascii config\storage.json
           'x' | Set-Content data\archive\probe.txt
+          New-Item -ItemType Directory -Force C:\MarsadTest | Out-Null
           .\scripts\start.ps1 -PrepareOnly
           if (-not (Test-Path C:\MarsadTest\Data\archive\probe.txt)) { exit 1 }
           if (-not (Test-Path data\archive\probe.txt)) { exit 1 }
+          $c = Get-Content -Raw config\storage.json | ConvertFrom-Json
+          if ($c.data_dir -ne 'C:\MarsadTest\Data' -or $c.pending) { exit 1 }
+          # قرص غير موصول: يُرفض ويبقى المكان الحالي
+          '{"data_dir":"C:\\MarsadTest\\Data","backup_dir":"","pending":{"data_dir":"Q:\\Nope\\Data","backup_dir":null,"move_data":true,"requested_by":"ci"},"last_error":null,"history":[]}' | Set-Content -Encoding ascii config\storage.json
+          .\scripts\start.ps1 -PrepareOnly
+          $c = Get-Content -Raw config\storage.json | ConvertFrom-Json
+          if ($c.data_dir -ne 'C:\MarsadTest\Data' -or -not $c.last_error) { exit 1 }
+          if (-not (Test-Path config\host-info.json)) { exit 1 }
