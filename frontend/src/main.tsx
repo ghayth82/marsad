@@ -22,6 +22,9 @@ import { Rumors } from "./pages/claims/Rumors";
 import { AudioLab } from "./pages/labs/AudioLab";
 import { Ratings } from "./pages/ratings/Ratings";
 import { Cases } from "./pages/cases/Cases";
+import { Help } from "./pages/Help";
+import { Reports } from "./pages/reports/Reports";
+import { Training } from "./pages/training/Training";
 import { StoryBuilder } from "./pages/cases/StoryBuilder";
 import { MediaLab } from "./pages/labs/MediaLab";
 import { Live } from "./pages/monitor/Live";
@@ -32,7 +35,7 @@ import { Preferences } from "./pages/Preferences";
 import { SessionProvider, useSession } from "./session";
 
 // الأقسام المبنية؛ ما عداها صفحة «قيد البناء» إلى أن يُبنى.
-const BUILT = new Set(["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities", "/rumors", "/claims", "/media-lab", "/audio-lab", "/ratings", "/cases", "/story-builder"]);
+const BUILT = new Set(["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities", "/rumors", "/claims", "/media-lab", "/audio-lab", "/ratings", "/cases", "/story-builder", "/reports", "/training", "/help"]);
 
 function Routed() {
   const { me, loading, needsSetup } = useSession();
@@ -57,6 +60,9 @@ function Routed() {
         <Route path="audio-lab/:id?" element={allowed.has("/audio-lab") ? <AudioLab /> : <Navigate to="/" replace />} />
         <Route path="cases/*" element={allowed.has("/cases") || allowed.has("/story-builder") ? <Cases /> : <Navigate to="/" replace />} />
         <Route path="story-builder/:id?" element={allowed.has("/story-builder") || allowed.has("/cases") ? <StoryBuilder /> : <Navigate to="/" replace />} />
+        <Route path="reports/:id?" element={allowed.has("/reports") ? <Reports /> : <Navigate to="/" replace />} />
+        <Route path="training/:id?" element={allowed.has("/training") ? <Training /> : <Navigate to="/" replace />} />
+        <Route path="help" element={<Help />} />
         <Route path="ratings/*" element={allowed.has("/ratings") ? <Ratings /> : <Navigate to="/" replace />} />
         <Route path="claims/*" element={allowed.has("/claims") || allowed.has("/rumors") ? <Claims /> : <Navigate to="/" replace />} />
         {SECTIONS.filter((s) => !BUILT.has(s.path)).map((s) => (

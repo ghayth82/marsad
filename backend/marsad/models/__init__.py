@@ -19,3 +19,4 @@ from marsad.models.claims import Claim, ClaimItem, Evidence, Verdict  # noqa: F4
 from marsad.models.labs import MediaCheck, MediaFile  # noqa: F401
 from marsad.models.ratings import Methodology, Reply, ReviewLabel, Score  # noqa: F401
 from marsad.models.cases import Case, CaseDocument, CaseMember, CaseRecord, CustodyLog, Draft, SanctionEntry  # noqa: F401
+from marsad.models.reports import AlertDelivery, Exercise, Report, Submission  # noqa: F401

@@ -5,9 +5,9 @@ import type { Access } from "./api";
 const role = (key: string, permissions: string[], active = true) => ({ key, name_ar: key, expires_at: null, active, permissions });
 
 describe("الأقسام حسب الأدوار", () => {
-  it("المتدرّب يرى الرئيسية والتدريب فقط", () => {
+  it("المتدرّب يرى الرئيسية والتدريب والدليل فقط", () => {
     const a: Access = { roles: [role("trainee", ["training.participate"])], overrides: [], effective: ["training.participate"] };
-    expect(visibleSections(a, null).map((s) => s.path)).toEqual(["/", "/training"]);
+    expect(visibleSections(a, null).map((s) => s.path)).toEqual(["/", "/training", "/help"]);
   });
 
   it("دوران معًا يجمعان الأقسام، و«عرض كـ» يركّز على دور واحد", () => {

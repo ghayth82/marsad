@@ -20,7 +20,7 @@ export function Settings() {
   return (
     <div className="cols">
       <div className="grow">{can("system.manage") && <StorageCard />}</div>
-      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <Sanctions />}</div>
+      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><TelegramBot /><ReportSchedule /><Sanctions /></>}</div>
       {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
   );
@@ -178,5 +178,55 @@ function PlatformRow({ p, providers, reload }: { p: Platform; providers: Record<
       </div>
       {msg && <div className="msg" role="status">{msg}</div>}
     </div>
+  );
+}
+
+/** بوت تيليغرام للتنبيهات: يُنشأ عبر @BotFather ويُلصق رمزه هنا. */
+function TelegramBot() {
+  const [st, setSt] = useState<{ configured: boolean; username: string | null; masked: string | null } | null>(null);
+  const [token, setToken] = useState("");
+  const [msg, setMsg] = useState("");
+  const load = () => api<typeof st>("/api/alerts/telegram").then(setSt);
+  useEffect(() => { load(); }, []);
+  const save = async (t: string | null) => {
+    setMsg("");
+    try { const r = await api<{ bot: string | null }>("/api/alerts/telegram/bot", { method: "PUT", body: { token: t } }); setToken(""); setMsg(r.bot ? `يعمل: @${r.bot}` : "أُزيل البوت."); load(); }
+    catch (x) { setMsg((x as Error).message); }
+  };
+  if (!st) return null;
+  return (
+    <section className="card" aria-label="بوت التنبيهات">
+      <h2>تنبيهات تيليغرام</h2>
+      {st.configured ? <span>البوت: <b dir="ltr">@{st.username}</b> <span className="mu">({st.masked})</span></span>
+        : <span className="mu" style={{ fontSize: 12 }}>أنشئ بوتًا من @BotFather في تيليغرام والصق رمزه هنا. يربط كل مستخدم حسابه من «تفضيلاتي».</span>}
+      <input className="inp" dir="ltr" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="رمز البوت" aria-label="رمز البوت" />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="btn sm" disabled={!token.trim()} onClick={() => save(token)}>حفظ وفحص</button>
+        {st.configured && <button className="btn sm" onClick={() => save(null)}>إزالة</button>}
+      </div>
+      {msg && <div className="msg" role="status">{msg}</div>}
+    </section>
+  );
+}
+
+function ReportSchedule() {
+  const [s, setS] = useState<{ morning: string; weekly: string; weekly_day: number; enabled: boolean } | null>(null);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { api<{ schedule: typeof s }>("/api/reports").then((r) => setS(r.schedule)).catch(() => {}); }, []);
+  if (!s) return null;
+  const days = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
+  const save = async () => { try { await api("/api/reports-schedule", { method: "PUT", body: s }); setMsg("حُفظ."); } catch (x) { setMsg((x as Error).message); } };
+  return (
+    <section className="card" aria-label="مواعيد التقارير">
+      <h2>مواعيد التقارير</h2>
+      <label className="fld">الموجز الصباحي<input className="inp" type="time" value={s.morning} onChange={(e) => setS({ ...s, morning: e.target.value })} /></label>
+      <div style={{ display: "flex", gap: 6 }}>
+        <label className="fld">التقرير الأسبوعي<select className="inp" value={s.weekly_day} onChange={(e) => setS({ ...s, weekly_day: Number(e.target.value) })}>{days.map((d, i) => <option key={d} value={i}>{d}</option>)}</select></label>
+        <label className="fld">الساعة<input className="inp" type="time" value={s.weekly} onChange={(e) => setS({ ...s, weekly: e.target.value })} /></label>
+      </div>
+      <label className="chk"><input type="checkbox" checked={s.enabled} onChange={(e) => setS({ ...s, enabled: e.target.checked })} /> الإنشاء التلقائي</label>
+      <button className="btn sm" onClick={save}>حفظ</button>
+      {msg && <div className="msg" role="status">{msg}</div>}
+    </section>
   );
 }

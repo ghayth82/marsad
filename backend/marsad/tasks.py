@@ -165,3 +165,23 @@ def ratings_snapshot(timestamp: int) -> int:
         return daily_snapshots(db)
     finally:
         db.close()
+
+
+@bp.periodic(cron="* * * * *", periodic_id="alerts-tick")
+@bp.task(name="alerts.tick", queue="system")
+def alerts_tick(timestamp: int) -> dict:
+    """كل دقيقة: مولّدات التنبيه (شائعة تنتشر، حملة، ما يتابعه المستخدم)، ثم الإرسال على تيليغرام، ثم التقارير التي حان موعدها."""
+    from marsad.db import get_db
+    from marsad.reports import alerts, core
+
+    db = next(get_db())
+    try:
+        made = alerts.scan(db)
+        for kind in core.due(db):
+            core.generate(db, kind)
+        db.commit()
+        sent = alerts.dispatch(db)
+        db.commit()
+        return {"made": made, **sent}
+    finally:
+        db.close()

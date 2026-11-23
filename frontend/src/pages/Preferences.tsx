@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useSearchParams } from "react-router-dom";
 import { api, type Prefs } from "../api";
@@ -88,7 +88,7 @@ export function Preferences() {
         <section className="card">
           <h2>التنبيهات</h2>
           <div className="tabs">
-            {([["in_app", "داخل البرنامج"], ["telegram", "تيليغرام"], ["email", "البريد"]] as const).map(([k, l]) => (
+            {([["in_app", "داخل البرنامج"], ["telegram", "تيليغرام"]] as const).map(([k, l]) => (
               <label key={k} className="chk">
                 <input type="checkbox" checked={p.alerts.channels.includes(k)}
                   onChange={(e) => save({ alerts: { ...p.alerts, channels: e.target.checked ? [...p.alerts.channels, k] : p.alerts.channels.filter((x) => x !== k) } })} />
@@ -100,6 +100,15 @@ export function Preferences() {
               العاجل فقط
             </label>
           </div>
+          <label className="chk">
+            <input type="checkbox" checked={!!p.alerts.quiet_hours} onChange={(e) => save({ alerts: { ...p.alerts, quiet_hours: e.target.checked ? [22, 7] : null } })} />
+            ساعات هدوء من 22:00 إلى 07:00 (إلا الشائعات العاجلة)
+          </label>
+          <TelegramLink />
+          <label className="fld">مواضيع وكيانات أتابعها (تنبيه عند ظهورها، مفصولة بفاصلة)
+            <input className="inp" defaultValue={[...(p.follows.topics ?? []), ...(p.follows.entities ?? [])].join("، ")} aria-label="ما أتابعه"
+                   onBlur={(e) => save({ follows: { ...p.follows, topics: e.target.value.split(/[،,]/).map((x) => x.trim()).filter(Boolean), entities: [] } })} />
+          </label>
         </section>
         <div><button className="btn" onClick={reset}>إرجاع واجهتي إلى قالب دوري</button></div>
       </div>
@@ -163,5 +172,32 @@ function Security({ onChange }: { onChange: () => Promise<void> }) {
         <button className="btn">حفظ</button>
       </form>
     </section>
+  );
+}
+
+function TelegramLink() {
+  const [st, setSt] = useState<{ configured: boolean; username: string | null; linked: boolean } | null>(null);
+  const [code, setCode] = useState<{ code: string; link: string | null } | null>(null);
+  const [msg, setMsg] = useState("");
+  const load = () => api<typeof st>("/api/alerts/telegram").then(setSt).catch(() => {});
+  useEffect(() => { load(); }, []);
+  if (!st) return null;
+  if (!st.configured) return <span className="mu" style={{ fontSize: 12 }}>تنبيهات تيليغرام تعمل حين يضيف المدير بوت البرنامج.</span>;
+  const check = async () => {
+    try { const r = await api<{ linked: boolean; note?: string }>("/api/alerts/telegram/check", { method: "POST" }); setMsg(r.linked ? "رُبط حسابك." : r.note ?? ""); load(); }
+    catch (x) { setMsg((x as Error).message); }
+  };
+  return (
+    <div className="row" aria-label="ربط تيليغرام">
+      {st.linked ? (
+        <><span className="f">تيليغرام مربوط ({"@" + st.username})</span>
+          <button className="btn sm" onClick={() => api("/api/alerts/test", { method: "POST" }).then(() => setMsg("أُرسل تنبيه تجريبي."))}>تنبيه تجريبي</button>
+          <button className="btn sm" onClick={() => api("/api/alerts/telegram/link", { method: "DELETE" }).then(load)}>فك الربط</button></>
+      ) : code ? (
+        <><span className="f">افتح {code.link ? <a href={code.link} target="_blank" rel="noreferrer noopener">البوت</a> : "البوت"} واضغط «ابدأ» (أو أرسل <b dir="ltr">/start {code.code}</b>)، ثم:</span>
+          <button className="btn sm" onClick={check}>تحقّق</button></>
+      ) : <button className="btn sm" onClick={() => api<typeof code>("/api/alerts/telegram/link", { method: "POST" }).then(setCode)}>اربط تيليغرام</button>}
+      {msg && <span className="mu" role="status">{msg}</span>}
+    </div>
   );
 }
