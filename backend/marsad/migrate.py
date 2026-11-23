@@ -52,3 +52,10 @@ if __name__ == "__main__":
     from marsad.db import init_engine
 
     revision(init_engine(), sys.argv[1] if len(sys.argv) > 1 else "تغيير")
+
+
+def current_revision(engine: Engine) -> str | None:
+    from alembic.runtime.migration import MigrationContext
+
+    with engine.connect() as conn:
+        return MigrationContext.configure(conn).get_current_revision()

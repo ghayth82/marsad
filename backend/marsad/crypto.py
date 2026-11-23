@@ -15,7 +15,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from marsad.config import get_settings
 
 
-def _master() -> bytes:
+def master_secret() -> str:
+    """السر الرئيسي نفسه (نصًا): من الإعداد، أو من config/secret.key."""
     key = get_settings().secret_key
     if not key:
         from marsad.core.paths import config_dir
@@ -30,7 +31,15 @@ def _master() -> bytes:
             except OSError:
                 pass
         key = f.read_text().strip()
-    return base64.urlsafe_b64encode(hashlib.sha256(("marsad:" + key).encode()).digest())
+    return key
+
+
+def derive(secret: str) -> bytes:
+    return base64.urlsafe_b64encode(hashlib.sha256(("marsad:" + secret).encode()).digest())
+
+
+def _master() -> bytes:
+    return derive(master_secret())
 
 
 def encrypt(plain: str) -> str:

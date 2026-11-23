@@ -4,6 +4,7 @@
     marsad-server prepare             تطبيق طلب تغيير المكان وإنشاء المجلدات، ويطبع المسارات
     marsad-server serve --port 8080   الخادم + العامل في عملية واحدة
     marsad-server migrate             الترحيلات فقط
+    marsad-server transfer export|import ملف   ملف النقل إلى خادم أو جهاز آخر
 
 ويمرّر له: MARSAD_HOME، MARSAD_CONFIG_DIR، MARSAD_DATABASE_URL، MARSAD_STATIC_DIR.
 """
@@ -20,6 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
     sub.add_parser("migrate")
+    tr = sub.add_parser("transfer")
+    tr.add_argument("action", choices=["export", "import"])
+    tr.add_argument("file")
     serve = sub.add_parser("serve")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8080)
@@ -29,6 +33,11 @@ def main(argv: list[str] | None = None) -> int:
         from marsad.core.storage_config import prepare
 
         return prepare()
+
+    if args.cmd == "transfer":
+        from marsad.transfer import main as transfer_main
+
+        return transfer_main([args.action, args.file])
 
     if args.cmd == "migrate":
         from marsad.db import get_engine, init_engine, migrate

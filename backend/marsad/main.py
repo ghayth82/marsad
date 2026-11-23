@@ -98,6 +98,8 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):
+            if path == "api" or path.startswith("api/"):  # مسار واجهة برمجية غير موجود: 404 لا صفحة الواجهة
+                return JSONResponse({"detail": "غير موجود"}, status_code=404)
             root = static_dir.resolve()
             f = (root / path).resolve()
             ok = path and f.is_file() and f.is_relative_to(root)

@@ -24,6 +24,23 @@ restore_test() {
   echo "اختبار الاستعادة نجح: $(basename "$latest") — $n مستخدم"
 }
 
+import_bundle() {
+  # ملف نقل من نسخة الجهاز: يُنسخ إلى مجلد البيانات ثم يُستورد داخل الحاوية (على نسخة جديدة قبل إنشاء أول حساب)
+  local f="${1:?استعمل: marsad import ملف.marsad}"
+  [[ -f "$f" ]] || { echo "الملف غير موجود: $f"; exit 1; }
+  mkdir -p data/tmp && cp "$f" data/tmp/import.marsad
+  read -rsp "عبارة المرور: " pass; echo
+  dc exec -T -e MARSAD_TRANSFER_PASSPHRASE="$pass" api python -m marsad.transfer import /data/tmp/import.marsad
+  rm -f data/tmp/import.marsad
+}
+
+export_bundle() {
+  local stamp; stamp="$(date +%Y%m%d-%H%M%S)"
+  read -rsp "عبارة المرور (8 أحرف على الأقل): " pass; echo
+  dc exec -T -e MARSAD_TRANSFER_PASSPHRASE="$pass" api python -m marsad.transfer export "/data/exports/marsad-$stamp.marsad"
+  echo "ملف النقل: $MARSAD_DIR/data/exports/marsad-$stamp.marsad"
+}
+
 case "${1:-status}" in
   status)  dc ps; dc exec -T api python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/api/health').read().decode())" ;;
   update)  backup; dc pull -q; dc up -d; echo "حُدّث البرنامج (أُخذت نسخة احتياطية قبل التحديث)." ;;
@@ -34,5 +51,7 @@ case "${1:-status}" in
   stop)    dc stop ;;
   start)   dc up -d ;;
   cert)    dc exec -T caddy cat /data/caddy/pki/authorities/local/root.crt ;;
-  *) echo "الاستخدام: marsad {status|update|backup|restore-test|logs [خدمة]|restart|stop|start|cert}"; exit 2 ;;
+  import)  import_bundle "${2:-}" ;;
+  export)  export_bundle ;;
+  *) echo "الاستخدام: marsad {status|update|backup|restore-test|logs [خدمة]|restart|stop|start|cert|import ملف|export}"; exit 2 ;;
 esac

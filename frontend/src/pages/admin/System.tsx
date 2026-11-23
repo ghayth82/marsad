@@ -20,7 +20,7 @@ export function Settings() {
   return (
     <div className="cols">
       <div className="grow">{can("system.manage") && <StorageCard />}</div>
-      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><TelegramBot /><ReportSchedule /><Sanctions /></>}</div>
+      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Transfer /><TelegramBot /><ReportSchedule /><Sanctions /></>}</div>
       {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
   );
@@ -227,6 +227,29 @@ function ReportSchedule() {
       <label className="chk"><input type="checkbox" checked={s.enabled} onChange={(e) => setS({ ...s, enabled: e.target.checked })} /> الإنشاء التلقائي</label>
       <button className="btn sm" onClick={save}>حفظ</button>
       {msg && <div className="msg" role="status">{msg}</div>}
+    </section>
+  );
+}
+
+/** ملف النقل: كل البيانات والملفات في ملف واحد محمي بعبارة مرور، للانتقال إلى خادم أو جهاز آخر. */
+function Transfer() {
+  const [pass, setPass] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [r, setR] = useState<{ name: string; path: string; size: number; records: number; files: number } | null>(null);
+  const [err, setErr] = useState("");
+  const go = async () => {
+    setBusy(true); setErr(""); setR(null);
+    try { setR(await api<NonNullable<typeof r>>("/api/admin/transfer/export", { method: "POST", body: { passphrase: pass } })); setPass(""); }
+    catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card" aria-label="ملف النقل">
+      <h2>ملف النقل</h2>
+      <span className="mu" style={{ fontSize: 12 }}>للانتقال إلى خادم: كل الحسابات والمواد والأحكام والقضايا والتفضيلات والملفات في ملف واحد. على الخادم الجديد: <b dir="ltr">marsad import الملف</b> قبل إنشاء أول حساب. احفظ عبارة المرور؛ دونها لا يُفتح الملف.</span>
+      <input className="inp" type="password" autoComplete="new-password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="عبارة مرور (8 أحرف على الأقل)" aria-label="عبارة مرور ملف النقل" />
+      <button className="btn sm" disabled={busy || pass.length < 8} onClick={go}>{busy ? "يجري التصدير…" : "أنشئ ملف النقل"}</button>
+      {err && <div className="msg err">{err}</div>}
+      {r && <div className="msg" role="status">{r.records} سجلًا و{r.files} ملفًا ({(r.size / 1048576).toFixed(1)} م.ب) · <a href={`/api/admin/transfer/${r.name}`}>تنزيل</a><br /><span dir="ltr" style={{ fontSize: 11 }}>{r.path}</span></div>}
     </section>
   );
 }

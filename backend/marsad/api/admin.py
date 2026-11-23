@@ -307,3 +307,47 @@ def audit(limit: int = 200, _: User = Depends(require("audit.view")), db: Sessio
     return [{"id": a.id, "at": a.at.isoformat(), "actor_id": a.actor_id, "action": a.action,
              "target_type": a.target_type, "target_id": a.target_id, "before": a.before,
              "after": a.after, "ip": a.ip} for a in rows]
+
+
+# ---------- ملف النقل ----------
+
+class TransferIn(BaseModel):
+    passphrase: str
+
+
+@router.post("/transfer/export")
+def transfer_export(body: TransferIn, actor: User = Depends(require("system.manage")), db: Session = Depends(get_db)):
+    """ملف واحد بكل البيانات والملفات، محمي بعبارة مرور، لنقل النسخة إلى خادم أو جهاز آخر."""
+    from datetime import datetime as _dt
+
+    from marsad import transfer
+    from marsad.core.paths import ensure_storage
+    from marsad.db import get_engine
+
+    name = f"marsad-{_dt.now().strftime('%Y%m%d-%H%M%S')}.marsad"
+    out = ensure_storage().exports / name
+    try:
+        m = transfer.export_bundle(get_engine(), out, body.passphrase)
+    except transfer.TransferError as e:
+        raise HTTPException(422, str(e)) from None
+    from marsad.audit import record
+
+    record(db, actor, "transfer.export", "file", name, after={"tables": sum(m["tables"].values()), "files": m["files"]})
+    db.commit()
+    return {"name": name, "path": str(out), "size": out.stat().st_size, "records": sum(m["tables"].values()), "files": m["files"]}
+
+
+@router.get("/transfer/{name}")
+def transfer_download(name: str, _: User = Depends(require("system.manage"))):
+    import re
+
+    from fastapi.responses import FileResponse
+
+    from marsad.core.paths import ensure_storage
+
+    if not re.fullmatch(r"marsad-\d{8}-\d{6}\.marsad", name):
+        raise HTTPException(404, "غير موجود")
+    p = ensure_storage().exports / name
+    if not p.exists():
+        raise HTTPException(404, "غير موجود")
+    return FileResponse(p, filename=name, media_type="application/octet-stream")
