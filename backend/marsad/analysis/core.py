@@ -78,10 +78,23 @@ def cosine(a: dict[str, float], b: dict[str, float]) -> float:
     return sum(v * b.get(k, 0.0) for k, v in a.items())
 
 
+def _strip_brand(i: Item, text: str) -> str:
+    """اسم الموقع في عناوينه ونصوصه («— الرأي»، «(بترا)») ليس من موضوع الخبر؛ إن بقي جمع أخبارًا مختلفة للموقع نفسه."""
+    try:
+        name = i.source.outlet.name if i.source is not None else ""
+    except Exception:
+        name = ""
+    words = [w for w in normalize_ar(name).split() if len(w) > 1]
+    if not words:
+        return text
+    pat = re.compile(r"(?<![\w])(?:" + "|".join(re.escape(w) for w in words) + r")(?![\w])")
+    return pat.sub(" ", normalize_ar(text))
+
+
 def item_signature(i: Item) -> dict[str, float]:
     sig = (i.meta or {}).get("sig")
     if not sig:
-        sig = signature(i.title, i.text)
+        sig = signature(_strip_brand(i, i.title), _strip_brand(i, i.text))
         i.meta = {**(i.meta or {}), "sig": sig}
     return sig
 
