@@ -38,8 +38,12 @@ def pending_diff(engine: Engine) -> list:
     from marsad.db import Base
 
     with engine.connect() as conn:
-        mc = MigrationContext.configure(conn, opts={"compare_type": True})
+        mc = MigrationContext.configure(conn, opts={"compare_type": True, "include_object": _ours})
         return compare_metadata(mc, Base.metadata)
+
+
+def _ours(obj, name, type_, reflected, compare_to):
+    return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate"))
 
 
 if __name__ == "__main__":

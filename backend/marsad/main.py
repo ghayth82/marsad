@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import asyncio
+import os
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -11,15 +13,18 @@ from fastapi.staticfiles import StaticFiles
 
 from marsad.api import admin, auth
 from marsad.core.paths import ensure_storage
-from marsad.db import get_db, init_engine, migrate
+from marsad.db import get_db, get_engine, init_engine, migrate
 from marsad.rbac.service import seed_builtin_roles
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
 def _bootstrap() -> None:
+    from marsad.tasks import ensure_queue_schema
+
     ensure_storage()
     migrate()
+    ensure_queue_schema(get_engine())
     db = next(get_db())
     try:
         seed_builtin_roles(db)
@@ -32,7 +37,17 @@ def _bootstrap() -> None:
 async def lifespan(app: FastAPI):
     init_engine()
     _bootstrap()
+    worker = None
+    if os.environ.get("MARSAD_EMBEDDED_WORKER") == "1":
+        # نسخة الجهاز: العامل داخل عملية الخادم نفسها
+        from marsad.worker import run
+
+        worker = asyncio.create_task(run(install_signal_handlers=False))
     yield
+    if worker:
+        worker.cancel()
+        with suppress(asyncio.CancelledError, Exception):
+            await worker
 
 
 def create_app(static_dir: Path | None = None) -> FastAPI:
@@ -48,7 +63,15 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health():
-        return {"ok": True}
+        from marsad.models import SystemSetting
+        from marsad.tasks import HEARTBEAT_KEY
+
+        db = next(get_db())
+        try:
+            row = db.get(SystemSetting, HEARTBEAT_KEY)
+            return {"ok": True, "worker_heartbeat": row.value if row else None}
+        finally:
+            db.close()
 
     app.include_router(auth.router)
     app.include_router(admin.router)
