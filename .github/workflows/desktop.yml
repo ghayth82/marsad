@@ -62,6 +62,22 @@ jobs:
           Write-Host "Meilisearch $tag"
           gh release download $tag -R meilisearch/meilisearch -p meilisearch-windows-amd64.exe -O "$env:RES/meilisearch.exe"
 
+      - name: أدوات المختبرات (ffmpeg وTesseract العربي)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          $t = "$env:RES/tools"
+          New-Item -ItemType Directory -Force "$t/ffmpeg", "$t/tesseract" | Out-Null
+          gh release download latest -R BtbN/FFmpeg-Builds -p "ffmpeg-master-latest-win64-gpl.zip" -O "$env:RUNNER_TEMP/ff.zip"
+          Expand-Archive "$env:RUNNER_TEMP/ff.zip" "$env:RUNNER_TEMP/ff"
+          Copy-Item (Get-ChildItem "$env:RUNNER_TEMP/ff" -Recurse -Include ffmpeg.exe, ffprobe.exe) "$t/ffmpeg/"
+          choco install tesseract -y --no-progress | Out-Null
+          $ts = "C:/Program Files/Tesseract-OCR"
+          Copy-Item "$ts/*.exe", "$ts/*.dll" "$t/tesseract/"
+          New-Item -ItemType Directory -Force "$t/tesseract/tessdata" | Out-Null
+          foreach ($l in 'ara','eng','osd') { Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$l.traineddata" -OutFile "$t/tesseract/tessdata/$l.traineddata" }
+          & "$t/ffmpeg/ffprobe.exe" -version | Select-Object -First 1
+          $env:TESSDATA_PREFIX = "$t/tesseract/tessdata"; & "$t/tesseract/tesseract.exe" --list-langs
+
       - name: بناء البرنامج والمُثبِّت (Tauri)
         run: |
           cd desktop; npm ci --no-audit --no-fund

@@ -48,3 +48,14 @@ export type Me = {
   preferences: Prefs;
   permission_labels: Record<string, string>;
 };
+
+/** رفع نموذج (ملفات) بالترويسة نفسها؛ المتصفح يضع حدود multipart بنفسه. */
+export async function apiForm<T = unknown>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "X-Marsad": "1" }, body: form });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const d = data?.detail;
+    throw new ApiError(res.status, typeof d === "string" ? d : "تعذّر رفع الملف");
+  }
+  return data as T;
+}

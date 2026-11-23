@@ -12,6 +12,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     MARSAD_HOME=/app MARSAD_MODE=server \
     MARSAD_DATA_DIR=/data MARSAD_BACKUP_DIR=/backups MARSAD_CONFIG_DIR=/config
 WORKDIR /app
+# أدوات المختبرات: ffmpeg للفيديو والصوت، وTesseract بالعربية لقراءة النص في الصور
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tesseract-ocr tesseract-ocr-ara \
+    && rm -rf /var/lib/apt/lists/*
 COPY backend/pyproject.toml backend/pyproject.toml
 COPY backend/marsad backend/marsad
 RUN pip install --no-cache-dir ./backend && rm -rf backend/build backend/*.egg-info

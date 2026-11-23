@@ -34,7 +34,7 @@ export function Shell() {
         <header className="top">
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: "1 1 220px", minWidth: 0 }}>
             <span className="crumb">{me.full_name || me.email}</span>
-            <h1>{loc.pathname.startsWith("/me") ? (en ? "My preferences" : "تفضيلاتي") : en ? current.en : current.ar}</h1>
+            <h1>{/^\/me(\/|$)/.test(loc.pathname) ? (en ? "My preferences" : "تفضيلاتي") : en ? current.en : current.ar}</h1>
           </div>
           <form role="search" onSubmit={(e) => { e.preventDefault(); const q = new FormData(e.currentTarget).get("q"); nav(`/live?q=${encodeURIComponent(String(q ?? ""))}`); }}>
             <input className="search" name="q" type="search" placeholder={en ? "Search everything monitored…" : "ابحث في كل ما رُصد…"} aria-label={en ? "Search" : "بحث"} />

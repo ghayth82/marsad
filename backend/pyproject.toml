@@ -17,6 +17,10 @@ dependencies = [
   "cryptography>=42",
   "trafilatura>=2.0",
   "feedparser>=6.0",
+  "python-multipart>=0.0.9",
+  "pillow>=10.4",
+  "numpy>=1.26",
+  "c2pa-python>=0.39",
 ]
 
 [project.optional-dependencies]

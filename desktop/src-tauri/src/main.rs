@@ -186,8 +186,17 @@ fn start(l: &Layout, report: &dyn Fn(&str)) -> Result<Running, String> {
     let s = |k: &str| sec[k].as_str().unwrap_or_default().to_string();
     let mode = if l.portable { "portable" } else { "desktop" };
     let server = l.resources.join("marsad-server").join(format!("marsad-server{EXE}"));
+    // أدوات المختبرات المضمَّنة (ffmpeg وTesseract) تسبق PATH الجهاز
+    let tools = l.resources.join("tools");
+    let mut paths = vec![tools.join("ffmpeg"), tools.join("tesseract")];
+    paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()));
+    let path_var = std::env::join_paths(paths).unwrap_or_default();
+    let tessdata = tools.join("tesseract").join("tessdata");
     let base_env = |cmd: &mut Command| {
-        cmd.env("MARSAD_HOME", &l.home).env("MARSAD_CONFIG_DIR", &l.config).env("MARSAD_MODE", mode);
+        cmd.env("MARSAD_HOME", &l.home).env("MARSAD_CONFIG_DIR", &l.config).env("MARSAD_MODE", mode).env("PATH", &path_var);
+        if tessdata.exists() {
+            cmd.env("TESSDATA_PREFIX", &tessdata);
+        }
     };
 
     // 1) طلب تغيير المكان (إن وُجد) وإنشاء المجلدات الناقصة
