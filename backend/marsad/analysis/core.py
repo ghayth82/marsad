@@ -176,8 +176,10 @@ def story_view(db: Session, story: Story) -> dict:
         if idx == 0:
             continue
         norm = normalize_ar(i.text)
+        own = [e for e in items[:idx] if e.outlet_id == i.outlet_id]
         earlier = [e for e in items[:idx] if e.outlet_id != i.outlet_id]  # النسخ بين مواقع مختلفة فقط
-        if not earlier:
+        own_update = any(similar(e.text[:3000], i.text[:3000]) >= 0.5 for e in own if e.text and i.text)
+        if not earlier or own_update:  # تحديث الموقع لخبره ليس نسخًا عن غيره
             rel.append({"item_id": i.id, "outlet": outlets[i.outlet_id].name, "kind": "من الموقع نفسه",
                         "from_item_id": None, "from_outlet": None, "similarity": 0.0, "adds": []})
             continue
