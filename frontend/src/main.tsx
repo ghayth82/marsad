@@ -17,6 +17,8 @@ import { Admin } from "./pages/admin/Admin";
 import { Engines } from "./pages/engines/Engines";
 import { Entities } from "./pages/analysis/Entities";
 import { Stories } from "./pages/analysis/Stories";
+import { Claims } from "./pages/claims/ClaimCard";
+import { Rumors } from "./pages/claims/Rumors";
 import { Live } from "./pages/monitor/Live";
 import { Sources } from "./pages/monitor/Sources";
 import { AcceptInvite, Login, Setup } from "./pages/Auth";
@@ -42,7 +44,9 @@ function Routed() {
         <Route path="live" element={allowed.has("/live") ? <Live /> : <Navigate to="/" replace />} />
         <Route path="stories/*" element={allowed.has("/stories") ? <Stories /> : <Navigate to="/" replace />} />
         <Route path="entities/*" element={allowed.has("/entities") ? <Entities /> : <Navigate to="/" replace />} />
-        {SECTIONS.filter((s) => !["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities"].includes(s.path)).map((s) => (
+        <Route path="rumors" element={allowed.has("/rumors") ? <Rumors /> : <Navigate to="/" replace />} />
+        <Route path="claims/*" element={allowed.has("/claims") || allowed.has("/rumors") ? <Claims /> : <Navigate to="/" replace />} />
+        {SECTIONS.filter((s) => !["/", "/admin", "/engines", "/sources", "/live", "/stories", "/entities", "/rumors", "/claims"].includes(s.path)).map((s) => (
           <Route key={s.path} path={s.path.slice(1) + "/*"} element={allowed.has(s.path) ? <Placeholder title={s.ar} /> : <Navigate to="/" replace />} />
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />

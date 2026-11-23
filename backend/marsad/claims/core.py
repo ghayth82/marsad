@@ -214,7 +214,7 @@ def radar(db: Session, hours: int = 3, baseline_days: int = 7, top: int = 15, no
         if score >= 2:
             out.append({"term": term, "count": n, "expected": round(expected, 2), "score": round(score, 2),
                         "items": samples[term][:10]})
-    out.sort(key=lambda x: (-x["score"], -len(x["term"])))
+    out.sort(key=lambda x: (-x["score"], -len(x["term"]), x["term"]))  # ترتيب ثابت عند التعادل
     # إزالة الكلمة المفردة إن ظهرت ضمن ثنائية أعلى منها
     final = []
     for x in out:

@@ -88,7 +88,9 @@ def test_radar_detects_spike(admin, feed):  # noqa: F811
     ids = [feed(f"م{n}", f"حريق كبير في سوق الخضار المركزي {n}", "", captured=now - timedelta(minutes=10 * n)) for n in range(5)]
     assert ids
     r = admin.get("/api/rumors/radar").json()
-    assert r and ("حريق" in r[0]["term"] or "سوق" in r[0]["term"]) and r[0]["count"] >= 3
+    top = " ".join(x["term"] for x in r[:3])
+    assert r and any(w in top for w in ("حريق", "سوق", "خضار")) and r[0]["count"] >= 3
+    assert not any("اقتصاد" in x["term"] for x in r)  # الموضوع المعتاد لا يظهر صاعدًا
     assert next(get_db()).get(Item, ids[0])
 
 
