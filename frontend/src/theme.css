@@ -45,6 +45,7 @@ a{color:var(--act)}
 .btn.danger{color:var(--bad);border-color:var(--bad)}
 .btn.sm{height:32px;padding:0 10px;font-size:12px}
 .inp{height:42px;border:1px solid var(--bd);border-radius:10px;background:var(--sf2);color:var(--tx);padding:0 12px;font-family:inherit;font-size:14px;min-width:0;width:100%}
+textarea.inp{height:auto;min-height:72px;padding:10px 12px;line-height:1.7;resize:vertical}
 select.inp{padding:0 8px}
 label.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600}
 .tw{overflow-x:auto}

@@ -268,26 +268,33 @@ def check_ela(db: Session, m: MediaFile, im: Image.Image) -> None:
     _add(db, m, "ela", grade, summary, {"heatmap": rel, "ratio": round(ratio, 2)})
 
 
-def check_ocr(db: Session, m: MediaFile, im: Image.Image) -> None:
+def ocr_text(im: Image.Image, thorough: bool = True) -> str:
+    """نص الصورة بأسطره. يعيد "" إن لم يكن Tesseract مثبّتًا."""
     if not shutil.which("tesseract"):
-        _add(db, m, "ocr", "—", "قارئ النص (OCR) غير مثبّت", {})
-        return
+        return ""
     g = ImageOps.exif_transpose(im).convert("L")
 
     def run(img: Image.Image, psm: str) -> str:
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "in.png"
             ImageOps.expand(img, 40, 255).save(p)  # هامش أبيض: Tesseract يُسقط أحيانًا السطر الملاصق للحافة
-            r = subprocess.run(["tesseract", str(p), "stdout", "-l", "ara+eng", "--psm", psm], capture_output=True, timeout=120)
-        return " ".join(r.stdout.decode("utf-8", "replace").split())
+            r = subprocess.run(["tesseract", str(p), "stdout", "-l", "ara+eng", "--psm", psm], capture_output=True, timeout=180)
+        return "\n".join(" ".join(line.split()) for line in r.stdout.decode("utf-8", "replace").splitlines() if line.strip())
 
     # تحليل التخطيط في Tesseract يُسقط أحيانًا سطرًا عربيًا كاملًا، ويختلف ذلك بين إصداراته؛
-    # فنجرّب أكثر من وضع وحجم ونأخذ القراءة الأكثر كلمات.
+    # فنجرّب أكثر من وضع (وحجم للصور الصغيرة) ونأخذ القراءة الأكثر كلمات؛ عند التساوي الأولى (الحجم الأصلي).
     candidates = [run(g, "3"), run(g, "6")]
-    if max(g.size) < 1600:
+    if thorough and max(g.size) < 1600:
         big = g.resize((g.width * 2, g.height * 2), Image.Resampling.LANCZOS)
         candidates += [run(big, "3"), run(big, "6")]
-    text = max(candidates, key=lambda t: len(t.split()))  # الأكثر كلمات؛ عند التساوي الحجم الأصلي (أقل تشويهًا)
+    return max(candidates, key=lambda t: len(t.split()))
+
+
+def check_ocr(db: Session, m: MediaFile, im: Image.Image) -> None:
+    if not shutil.which("tesseract"):
+        _add(db, m, "ocr", "—", "قارئ النص (OCR) غير مثبّت", {})
+        return
+    text = " ".join(ocr_text(im).split())
     _add(db, m, "ocr", "—", (f"النص في الصورة: {text[:200]}" if text else "لا نص مقروء في الصورة"), {"text": text})
 
 

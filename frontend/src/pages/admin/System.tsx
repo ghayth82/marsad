@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../../api";
+import { api, apiForm } from "../../api";
 import { useCan } from "../../session";
 
 // داخل برنامج سطح المكتب: نافذة اختيار مجلد وإعادة تشغيل فورية
@@ -20,7 +20,7 @@ export function Settings() {
   return (
     <div className="cols">
       <div className="grow">{can("system.manage") && <StorageCard />}</div>
-      <div className="side">{can("users.manage") && <FourEyes />}</div>
+      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <Sanctions />}</div>
     </div>
   );
 }
@@ -97,5 +97,28 @@ function StorageCard() {
         </details>
       )}
     </section>
+  );
+}
+
+/** قوائم العقوبات والأشخاص ذوي النفوذ لمطابقة أسماء القضايا. */
+function Sanctions() {
+  const [name, setName] = useState("OpenSanctions");
+  const [file, setFile] = useState<File | null>(null);
+  const [msg, setMsg] = useState("");
+  const go = async (e: React.FormEvent) => {
+    e.preventDefault(); setMsg("");
+    const f = new FormData(); f.append("list_name", name); f.append("file", file!);
+    try { const r = await apiForm<{ entries: number }>("/api/sanctions/import", f); setMsg(`استُوردت ${r.entries} جهة وشخصًا.`); }
+    catch (x) { setMsg((x as Error).message); }
+  };
+  return (
+    <form className="card" onSubmit={go} style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-label="قوائم العقوبات">
+      <h2>قوائم العقوبات</h2>
+      <span className="mu" style={{ fontSize: 12 }}>ملف OpenSanctions «targets.simple.csv» (مجاني للاستخدام غير التجاري) أو CSV بعمود name. استيراد قائمة بالاسم نفسه يستبدلها.</span>
+      <input className="inp" value={name} onChange={(e) => setName(e.target.value)} aria-label="اسم القائمة" />
+      <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="ملف القائمة" />
+      <button className="btn" disabled={!file || !name.trim()}>استيراد</button>
+      {msg && <div className="msg" role="status">{msg}</div>}
+    </form>
   );
 }

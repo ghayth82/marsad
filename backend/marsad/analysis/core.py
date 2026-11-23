@@ -276,13 +276,13 @@ _W = r"[ء-ي]+"
 
 
 def _defs(words: list[str], first_free: bool) -> list[str]:
-    """تكملة الاسم: الكلمة الأولى حرة (إن سُمح)، وما بعدها معرّفة فقط (ال/وال) — «وزارة الطاقة والثروة المعدنية»."""
+    """تكملة الاسم: الكلمة الأولى حرة (إن سُمح)، وما بعدها معرّفة فقط (ال/وال/لل) — «وزارة الطاقة والثروة المعدنية»."""
     out = []
     for k, w in enumerate(words):
         n = normalize_ar(w)
         if n in _STOP_NEXT or len(out) >= 4:
             break
-        if (k == 0 and first_free) or n.startswith(("ال", "وال")):
+        if (k == 0 and first_free) or n.startswith(("ال", "وال", "لل")):  # «شركة الأفق للمقاولات»
             out.append(w)
         else:
             break
@@ -304,6 +304,8 @@ def extract_entities(text: str) -> list[dict]:
             # الاسم الأول غير معرّف، وما بعده قد يكون معرّفًا (اسم العائلة: «صالح الخرابشة»)
             if n in _STOP_NEXT or (not name and n.startswith("ال")) or len(name) >= 3:
                 break
+            if any(normalize_ar(x).startswith("ال") for x in name[1:] + name[:0]) and not n.startswith("ال"):
+                break  # بعد اسم العائلة المعرّف لا تدخل كلمة نكرة: «سامي الحسن توقيع» ← «سامي الحسن»
             name.append(w)
         if len(name) >= 2:
             found.append(("person", " ".join(name)))
@@ -315,12 +317,13 @@ def extract_entities(text: str) -> list[dict]:
             name.append(w)
         if name:
             found.append(("person", f"{m.group(1)} {' '.join(name)}" if len(name) < 2 or m.group(1) in ("الملك", "الأمير", "الامير") else " ".join(name)))
-    for m in re.finditer(ORG + rf"(?:\s+((?:{_W}\s?){{1,5}}))?", text):
+    # بحث متداخل (lookahead): «وزارة الأشغال العامة عقدا مع شركة الأفق» فيها جهتان، والأولى لا «تأكل» الثانية
+    for m in re.finditer(rf"(?<![ء-ي])(?={ORG}(?:\s+((?:{_W}\s?){{1,5}}))?)", text):
         trig = m.group(1)
         rest = _defs((m.group(2) or "").split(), first_free=not trig.startswith("ال"))
         if rest or trig.startswith("ال"):
             found.append(("org", f"{trig} {' '.join(rest)}".strip()))
-    for m in re.finditer(PLACE + rf"\s+((?:{_W}\s?){{1,3}})", text):
+    for m in re.finditer(rf"(?<![ء-ي])(?={PLACE}\s+((?:{_W}\s?){{1,3}}))", text):
         rest = _defs(m.group(2).split(), first_free=True)
         if rest:
             found.append(("place", f"{m.group(1)} {' '.join(rest)}"))
