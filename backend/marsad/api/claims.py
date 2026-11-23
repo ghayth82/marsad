@@ -113,12 +113,18 @@ class ClaimEdit(BaseModel):
     tags: list[str] | None = None
     official_item_id: int | None = None
     text: str | None = None
+    base: dict | None = None  # القيم كما رآها المحرِّر قبل تعديله؛ إن غيّرها زميل في الأثناء يُرفض الحفظ ولا يُمحى تعديله
 
 
 @router.put("/claims/{cid}")
 def edit_claim(cid: int, body: ClaimEdit, user: User = Depends(create), db: Session = Depends(get_db)):
     c = db.get(Claim, cid) or _404()
     ch = body.model_dump(exclude_none=True)
+    base = ch.pop("base", None) or {}
+    stale = {k: getattr(c, k) for k in ch if k in base and base[k] != getattr(c, k)}
+    if stale:
+        return JSONResponse({"detail": "عدّل زميل هذا الحقل بعد أن فتحت البطاقة. راجع القيمة الحالية ثم أعد تعديلك؛ لم يُحذف شيء.",
+                             "current": stale}, status_code=409)
     if "status" in ch and ch["status"] not in ("new", "investigating", "archived"):
         raise HTTPException(422, "الحالة تتغير إلى «حكم» فقط بالاعتماد")
     before = {k: getattr(c, k) for k in ch}

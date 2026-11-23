@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, apiForm } from "../../api";
+import { Presence } from "../../components/Presence";
 import { useCan } from "../../session";
 
 type Doc = { id: number; number: number; filename: string; kind: string; size: number; sha256: string; status: string; method: string;
@@ -92,6 +93,7 @@ function Room() {
         <span className={`pill ${o.custody.ok ? "p-ok" : "p-bad"}`} title={o.custody.note}>{o.custody.ok ? "سلسلة الحفظ سليمة" : "سلسلة الحفظ مكسورة"}</span>
         {can("stories.write") && edit && <button className="btn pri" onClick={newDraft}>ابنِ القصة من الأدلة</button>}
       </div>
+      <Presence path={`/cases/${o.id}`} />
       <nav className="tabs" role="tablist" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
         {TABS.map(([k, label]) => (
           <Link key={k} role="tab" aria-selected={tab === k} className={`btn sm ${tab === k ? "pri" : ""}`} to={`/cases/${o.id}${k ? "/" + k : ""}`}>

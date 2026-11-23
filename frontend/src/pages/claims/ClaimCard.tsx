@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { api } from "../../api";
+import { api, ApiError } from "../../api";
+import { Presence } from "../../components/Presence";
 import { useCan } from "../../session";
 import { Rumors, STATUS, labelPill, type ClaimRow } from "./Rumors";
 
@@ -32,6 +33,7 @@ function Card() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [ev, setEv] = useState({ kind: "link", title: "", url: "", grade: "", note: "", is_conclusive: false });
   const [vf, setVf] = useState({ label: "", evidence_grade: "", explanation: "" });
+  const [edit, setEdit] = useState<{ text: string; speaker: string } | null>(null);
   const load = () => api<Full>(`/api/claims/${id}`).then(setC);
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   const run = async (fn: () => Promise<unknown>, ok: string) => {
@@ -47,7 +49,23 @@ function Card() {
       <div className="grow">
         <section className="card">
           <span className="mu">الشائعات › ادّعاء #{c.id}</span>
-          <h2 style={{ fontSize: 18 }}>«{c.text}»</h2>
+          <Presence path={`/claims/${c.id}`} editing={!!edit} />
+          {edit ? (
+            <form onSubmit={async (e) => {
+              e.preventDefault(); setMsg(null);
+              try { await api(`/api/claims/${c.id}`, { method: "PUT", body: { text: edit.text, speaker: edit.speaker, base: { text: c.text, speaker: c.speaker } } }); setEdit(null); await load(); setMsg({ kind: "ok", text: "حُفظ." }); }
+              catch (x) { setMsg({ kind: "err", text: (x as Error).message }); if (x instanceof ApiError && x.status === 409) await load(); }
+            }} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label className="fld">نص الادّعاء<textarea className="inp" rows={2} value={edit.text} onChange={(e) => setEdit({ ...edit, text: e.target.value })} /></label>
+              <label className="fld">القائل<input className="inp" value={edit.speaker} onChange={(e) => setEdit({ ...edit, speaker: e.target.value })} /></label>
+              <div style={{ display: "flex", gap: 6 }}><button className="btn sm pri">حفظ</button><button type="button" className="btn sm" onClick={() => setEdit(null)}>إلغاء</button></div>
+            </form>
+          ) : (
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <h2 style={{ fontSize: 18, flex: 1 }}>«{c.text}»</h2>
+              {can("claims.create") && <button className="btn sm" onClick={() => setEdit({ text: c.text, speaker: c.speaker ?? "" })}>تعديل</button>}
+            </div>
+          )}
           <div className="tabs">
             <span className={`pill ${STATUS[c.status]?.[0]}`}>{STATUS[c.status]?.[1]}</span>
             {c.verdict && <span className={`pill ${labelPill(c.verdict.label)}`}>{c.verdict.label} · {c.verdict.evidence_grade}{c.verdict.status === "proposed" ? " (مقترح)" : ""}</span>}

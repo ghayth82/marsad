@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api";
+import { Presence } from "../../components/Presence";
 import { useCan } from "../../session";
 
 type Draft = { id: number; case_id: number; case_title: string; title: string; status: string; version: number; angle?: string; body?: string; questions?: string[];
@@ -45,6 +46,7 @@ function Builder({ id }: { id: number }) {
     <div className="cols">
       <div className="grow">
         <span className="mu"><Link to="/cases">القضايا</Link> › <Link to={`/cases/${d.case_id}`}>قضية #{d.case_id}</Link> › المسودة</span>
+        <Presence path={`/story-builder/${d.id}`} editing={dirty} />
         <section className="card">
           <label className="fld">العنوان<input className="inp" value={f.title} disabled={!editable} onChange={(e) => { setF({ ...f, title: e.target.value }); setDirty(true); }} /></label>
           <label className="fld">الزاوية<input className="inp" value={f.angle} disabled={!editable} onChange={(e) => { setF({ ...f, angle: e.target.value }); setDirty(true); }} /></label>
