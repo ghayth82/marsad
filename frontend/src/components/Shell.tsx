@@ -5,12 +5,6 @@ import { Frame } from "./Frame";
 import { HistoryNav } from "./HistoryNav";
 import { ReaderDrawer } from "./Reader";
 
-const PATTERNS = [
-  { key: "c", ar: "ج · مساحة العمل", en: "C · Workspace" },
-  { key: "b", ar: "ب · تحريري", en: "B · Editorial" },
-  { key: "a", ar: "أ · داكن", en: "A · Night" },
-] as const;
-
 export function Shell() {
   const { me, savePrefs } = useSession();
   const loc = useLocation();
@@ -21,6 +15,7 @@ export function Shell() {
   const sections = visibleSections(me.access, p.view_as_role);
   const current = SECTIONS.find((s) => s.path !== "/" && loc.pathname.startsWith(s.path)) ?? SECTIONS[0];
   const activeRoles = me.access.roles.filter((r) => r.active);
+  const dark = p.theme === "dark" || (p.theme === "system" && (p.pattern === "a" || !!window.matchMedia?.("(prefers-color-scheme: dark)").matches));
 
   return (
     <Frame prefs={p}>
@@ -52,12 +47,9 @@ export function Shell() {
               </select>
             </label>
           )}
-          <div className="seg" role="group" aria-label={en ? "Interface pattern" : "نمط الواجهة"}>
-            {PATTERNS.map((x) => (
-              <button key={x.key} className={p.pattern === x.key ? "on" : ""} aria-pressed={p.pattern === x.key}
-                onClick={() => savePrefs({ pattern: x.key })}>{en ? x.en : x.ar}</button>
-            ))}
-          </div>
+          <button className="mode-btn" onClick={() => savePrefs({ theme: dark ? "light" : "dark", pattern: "c" })}
+            title={dark ? (en ? "Switch to light" : "التبديل إلى الفاتح") : (en ? "Switch to dark" : "التبديل إلى الداكن")}
+            aria-label={dark ? (en ? "Light mode" : "الوضع الفاتح") : (en ? "Dark mode" : "الوضع الداكن")}>{dark ? "☀" : "☾"}</button>
           <button className="av" title={en ? "My preferences" : "تفضيلاتي"} aria-label={en ? "My preferences" : "تفضيلاتي"}
             onClick={() => nav("/me")}>{(me.full_name || me.email).trim().charAt(0).toUpperCase()}</button>
         </header>

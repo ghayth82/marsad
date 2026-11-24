@@ -25,6 +25,18 @@ class AlertPrefs(BaseModel):
     quiet_hours: tuple[int, int] | None = None  # (من، إلى) بالساعة
 
 
+class Appearance(BaseModel):
+    """مظهر الواجهة لكل مستخدم: الخط والقراءة والألوان والكثافة."""
+    model_config = ConfigDict(extra="forbid")
+    font: Literal["noto", "naskh", "plex", "readex"] = "noto"
+    leading: Literal["normal", "comfy", "wide"] = "comfy"
+    read_scale: float = Field(1.0, ge=0.8, le=1.8)  # حجم نص الخبر وحده في القارئ
+    read_width: Literal["narrow", "medium", "full"] = "medium"
+    accent: Literal["teal", "blue", "indigo", "purple", "graphite"] = "teal"
+    contrast: bool = False
+    density: Literal["comfortable", "compact"] = "comfortable"
+
+
 class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -32,6 +44,7 @@ class Preferences(BaseModel):
     theme: Literal["light", "dark", "system"] = "system"
     language: Literal["ar", "en"] = "ar"
     font_scale: float = Field(1.0, ge=0.8, le=1.6)
+    appearance: Appearance = Field(default_factory=Appearance)
     dashboard: list[str] = Field(default_factory=lambda: ["my_tasks", "rising_stories", "new_rumors", "alerts",
                                                           "sources_status", "daily_brief"])
     view_as_role: str | None = None  # «عرض الواجهة كـ» دور واحد لمن يحمل أكثر من دور

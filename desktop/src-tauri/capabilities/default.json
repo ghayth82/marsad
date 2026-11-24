@@ -1,8 +1,19 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "الواجهة المحلية تستدعي أوامر البرنامج (اختيار مجلد، إعادة التشغيل)",
-  "windows": ["main"],
-  "remote": { "urls": ["http://127.0.0.1:*", "http://localhost:*"] },
-  "permissions": ["core:default", "dialog:default"]
+  "description": "الواجهة المحلية تستدعي أوامر البرنامج (اختيار مجلد، إعادة التشغيل، فتح مادة في نافذة مستقلة)",
+  "windows": [
+    "main"
+  ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:*",
+      "http://localhost:*"
+    ]
+  },
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "core:webview:allow-create-webview-window"
+  ]
 }

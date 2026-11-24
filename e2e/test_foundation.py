@@ -44,14 +44,30 @@ def main() -> int:
         assert "الإدارة" in nav_items(admin), nav_items(admin)
         admin.screenshot(path=SHOTS / "01-admin-preferences-c.png", full_page=True)
 
-        # 2) النمط يتغير ويُحفظ
-        admin.get_by_role("button", name="أ · داكن").click()
-        expect(admin.locator(".app")).to_have_attribute("data-pattern", "a")
-        admin.screenshot(path=SHOTS / "02-pattern-a.png", full_page=True)
-        admin.get_by_role("button", name="ب · تحريري").click()
-        expect(admin.locator(".app")).to_have_attribute("data-pattern", "b")
+        # 2) المظهر يتغير ويُحفظ: زر الداكن في الأعلى، والخط والألوان من «تفضيلاتي»
+        app = admin.locator(".app")
+        start_dark = app.get_attribute("data-dark") == "1"
+        admin.get_by_role("button", name="الوضع الفاتح" if start_dark else "الوضع الداكن").click()
+        expect(app).to_have_attribute("data-dark", "0" if start_dark else "1")
+        if not start_dark:
+            admin.screenshot(path=SHOTS / "02-dark.png", full_page=True)
+        admin.goto(f"{BASE}/me")
+        admin.get_by_label("الوضع", exact=True).select_option("dark")
+        expect(app).to_have_attribute("data-dark", "1")
+        admin.get_by_role("button", name="أزرق", exact=True).click()
+        expect(app).to_have_attribute("data-accent", "blue")
+        admin.get_by_label("نوع الخط", exact=True).select_option("naskh")
+        admin.get_by_label("كثافة العرض", exact=True).select_option("compact")
+        admin.get_by_label("تباين عالٍ", exact=True).check()
+        admin.screenshot(path=SHOTS / "02-appearance.png", full_page=True)
         admin.reload()
-        expect(admin.locator(".app")).to_have_attribute("data-pattern", "b")
+        expect(app).to_have_attribute("data-accent", "blue")
+        expect(app).to_have_attribute("data-density", "compact")
+        expect(app).to_have_attribute("data-contrast", "1")
+        assert "Naskh" in app.evaluate("e => getComputedStyle(e).fontFamily")
+        admin.get_by_role("button", name="إرجاع المظهر الافتراضي").click()
+        expect(app).to_have_attribute("data-accent", "teal")
+        expect(app).to_have_attribute("data-density", "comfortable")
 
         # 3) إضافة مستخدم بدوري صحفي وباحث
         admin.goto(f"{BASE}/admin/users")
@@ -73,8 +89,8 @@ def main() -> int:
         expect(sara.get_by_text("أهلًا بك")).to_be_visible()
         items = nav_items(sara)
         assert "الادّعاء" in items and "التقييم" in items and "الإدارة" not in items, items
-        # واجهة سارة مستقلة عن واجهة المدير
-        expect(sara.locator(".app")).to_have_attribute("data-pattern", "c")
+        # واجهة سارة مستقلة عن واجهة المدير (المدير غيّر لونه وكثافته، وسارة على الافتراضي)
+        expect(sara.locator(".app")).to_have_attribute("data-accent", "teal")
 
         # 5) «عرض كـ» الباحث يخفي أقسام الصحفي
         sara.get_by_label("عرض كـ").select_option("researcher")

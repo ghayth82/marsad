@@ -29,11 +29,24 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
   return data as T;
 }
 
+export type Appearance = {
+  font: "noto" | "naskh" | "plex" | "readex";
+  leading: "normal" | "comfy" | "wide";
+  read_scale: number;
+  read_width: "narrow" | "medium" | "full";
+  accent: "teal" | "blue" | "indigo" | "purple" | "graphite";
+  contrast: boolean;
+  density: "comfortable" | "compact";
+};
+
+export const DEFAULT_APPEARANCE: Appearance = { font: "noto", leading: "comfy", read_scale: 1, read_width: "medium", accent: "teal", contrast: false, density: "comfortable" };
+
 export type Prefs = {
   pattern: "a" | "b" | "c";
   theme: "light" | "dark" | "system";
   language: "ar" | "en";
   font_scale: number;
+  appearance: Appearance;
   dashboard: string[];
   view_as_role: string | null;
   follows: Record<string, string[]>;

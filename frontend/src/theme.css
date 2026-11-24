@@ -92,3 +92,26 @@ code.blk{display:block;padding:10px;background:var(--sf2);border:1px solid var(-
 .row.clickable.on{background:var(--acs)}
 .linkish{background:none;border:0;padding:0;color:var(--act);font:inherit;cursor:pointer;text-align:start;text-decoration:underline;text-underline-offset:3px}
 .row.on{background:var(--acs);border-radius:8px}
+
+/* مظهر الواجهة (تفضيلاتي): لون التمييز، التباين العالي، الكثافة. الألوان مفحوصة: تباين النص 4.5 فأكثر */
+.app[data-accent="blue"]{--ac:#1F4FD1;--acs:#EAF0FC;--act:#173C9E;--onac:#FFFFFF;--navontx:#FFFFFF}
+.app[data-accent="indigo"]{--ac:#4F46E5;--acs:#EEF0FF;--act:#3730A3;--onac:#FFFFFF;--navontx:#FFFFFF}
+.app[data-accent="purple"]{--ac:#7E22CE;--acs:#F5EDFD;--act:#6B21A8;--onac:#FFFFFF;--navontx:#FFFFFF}
+.app[data-accent="graphite"]{--ac:#334155;--acs:#EEF1F5;--act:#1E293B;--onac:#FFFFFF;--navontx:#FFFFFF}
+.app[data-dark="1"][data-accent="blue"]{--ac:#7C9CFF;--acs:#1D2A4A;--act:#9DB7FF;--onac:#0B1412;--navontx:#9DB7FF}
+.app[data-dark="1"][data-accent="indigo"]{--ac:#A5B4FC;--acs:#1F2147;--act:#C7D2FE;--onac:#0B1412;--navontx:#C7D2FE}
+.app[data-dark="1"][data-accent="purple"]{--ac:#D8B4FE;--acs:#2A1840;--act:#E9D5FF;--onac:#0B1412;--navontx:#E9D5FF}
+.app[data-dark="1"][data-accent="graphite"]{--ac:#CBD5E1;--acs:#1F2630;--act:#E2E8F0;--onac:#0B1412;--navontx:#E2E8F0}
+.app[data-contrast="1"]{--tx:#000000;--mu:#2B3138;--bd:#7A848F}
+.app[data-dark="1"][data-contrast="1"]{--tx:#FFFFFF;--mu:#D5DBE2;--bd:#6B7583}
+.app[data-contrast="1"] main a:not(.btn){text-decoration:underline}
+.app[data-density="compact"] .body{padding:10px 14px;gap:8px}
+.app[data-density="compact"] .card{padding:9px 12px;gap:6px}
+.app[data-density="compact"] .row{padding:4px 0;gap:8px}
+.app[data-density="compact"] .cols,.app[data-density="compact"] .grow,.app[data-density="compact"] .side{gap:8px}
+.app[data-density="compact"] .btn{height:32px}
+.app[data-density="compact"] .inp:not(textarea){height:34px}
+.mode-btn{width:38px;height:36px;border-radius:10px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);cursor:pointer;font-size:16px}
+.ap-sample{border:1px dashed var(--bd);border-radius:10px;padding:12px 14px;background:var(--sf2)}
+.swatch{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer}
+.swatch[aria-pressed="true"]{border-color:var(--tx)}

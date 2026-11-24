@@ -1,3 +1,5 @@
+import "@fontsource/noto-naskh-arabic/400.css";
+import "@fontsource/noto-naskh-arabic/700.css";
 import "@fontsource/noto-sans-arabic/400.css";
 import "@fontsource/noto-sans-arabic/600.css";
 import "@fontsource/noto-sans-arabic/700.css";

@@ -37,8 +37,13 @@ def main() -> int:
         page = ctx.new_page()
         errors: list[str] = []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        for pattern in ("c", "b", "a"):
-            assert ctx.request.patch(f"{BASE}/api/me/preferences", data={"pattern": pattern}, headers=H).ok
+        LOOKS = {  # الفاتح، والداكن، وأقصى إعدادات: خط كبير وخط النسخ ومضغوط وتباين عالٍ
+            "light": {"theme": "light", "font_scale": 1, "appearance": {"font": "noto", "density": "comfortable", "contrast": False}},
+            "dark": {"theme": "dark", "font_scale": 1, "appearance": {"font": "noto", "density": "comfortable", "contrast": False}},
+            "big": {"theme": "light", "font_scale": 1.4, "appearance": {"font": "naskh", "density": "compact", "contrast": True}},
+        }
+        for pattern, look in LOOKS.items():
+            assert ctx.request.patch(f"{BASE}/api/me/preferences", data=look, headers=H).ok
             for width, height, label in ((1440, 900, "desktop"), (390, 844, "mobile")):
                 page.set_viewport_size({"width": width, "height": height})
                 for r in routes:
@@ -63,8 +68,9 @@ def main() -> int:
                     if errors:
                         problems.append(f"{pattern}/{label} {r}: خطأ في الصفحة {errors[:2]}")
                 page.screenshot(path=SHOTS / f"95-{pattern}-{label}-claim.png", full_page=True)
-        # النمط يُحفظ ويتبع المستخدم بعد إعادة الدخول
-        assert ctx.request.get(f"{BASE}/api/me").json()["preferences"]["pattern"] == "a"
+        # المظهر يُحفظ ويتبع المستخدم بعد إعادة الدخول
+        saved = ctx.request.get(f"{BASE}/api/me").json()["preferences"]
+        assert saved["font_scale"] == 1.4 and saved["appearance"]["font"] == "naskh" and saved["appearance"]["contrast"] is True
         # النص المختلط: الاتجاه العام من اليمين، والأرقام والكلمات الإنجليزية في مكانها
         page.set_viewport_size({"width": 1440, "height": 900})
         page.goto(f"{BASE}/claims/{cid}")
@@ -72,12 +78,12 @@ def main() -> int:
         expect(h).to_be_visible()
         assert h.evaluate("e => getComputedStyle(e).direction") == "rtl"
         assert h.inner_text() == f"«{MIXED}»"
-        ctx.request.patch(f"{BASE}/api/me/preferences", data={"pattern": "c"}, headers=H)
+        ctx.request.patch(f"{BASE}/api/me/preferences", data={"theme": "system", "font_scale": 1, "appearance": {"font": "noto", "density": "comfortable", "contrast": False}}, headers=H)
         browser.close()
     if problems:
         print("\n".join(problems))
         return 1
-    print(f"E2E الشاشات: {len(routes)} شاشة × 3 أنماط × عرضان — لا مشكلات")
+    print(f"E2E الشاشات: {len(routes)} شاشة × 3 مظاهر × عرضان — لا مشكلات")
     return 0
 
 
