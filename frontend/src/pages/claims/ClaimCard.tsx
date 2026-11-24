@@ -4,13 +4,15 @@ import { api, ApiError } from "../../api";
 import { Presence } from "../../components/Presence";
 import { useCan } from "../../session";
 import { Rumors, STATUS, labelPill, type ClaimRow } from "./Rumors";
+import { ArchivePanel, FactCheckPanel, FiguresPanel, ResultCard, type FactCheck } from "./ClaimTools";
 
 type V = { id: number; label: string; evidence_grade: string; explanation: string; status: string; author_id: number; approved_at: string | null; created_at: string };
 type Node = { item_id: number; parent_item_id: number | null; title: string; outlet: string; url: string; time: string; kind: string; source_kind: string };
 type Ev = { id: number; kind: string; title: string; url: string; sha256: string; grade: string; note: string; is_conclusive: boolean; added_at: string };
 type Full = ClaimRow & { speaker: string; first_item: { id: number; title: string; url: string; outlet: string } | null;
   official_item: { id: number; title: string; url: string } | null; official_suggestions: { item_id: number; title: string; outlet: string; denial: boolean; url: string }[];
-  spread: { nodes: Node[]; coordination: { start: string; outlets: string[]; note: string }[] }; evidence: Ev[]; history: V[]; claimreview: object | null };
+  spread: { nodes: Node[]; coordination: { start: string; outlets: string[]; note: string }[] }; evidence: Ev[]; history: V[]; claimreview: object | null;
+  factcheck: FactCheck; tip: string | null; transcript: { media_id: number; start: number } | null };
 
 const LABELS = ["صحيح", "صحيح جزئيًا", "مضلل", "مفبرك", "غير مؤكد"];
 const GRADES = ["قاطع", "مؤشر قوي", "لا يكفي"];
@@ -48,7 +50,7 @@ function Card() {
     <div className="cols">
       <div className="grow">
         <section className="card">
-          <span className="mu">الشائعات › ادّعاء #{c.id}</span>
+          <span className="mu">الشائعات › ادّعاء #{c.id}{c.tip ? ` · من البلاغ ${c.tip}` : ""}{c.transcript ? " · من تفريغ تسجيل" : ""}</span>
           <Presence path={`/claims/${c.id}`} editing={!!edit} />
           {edit ? (
             <form onSubmit={async (e) => {
@@ -151,6 +153,10 @@ function Card() {
               {can("claims.create") && <button className="btn sm" onClick={() => run(() => api(`/api/claims/${c.id}`, { method: "PUT", body: { official_item_id: s.item_id } }), "رُبط البيان.")}>ربط</button>}</div>
           ))}
         </section>
+        <FactCheckPanel cid={c.id} fc={c.factcheck} can={can("claims.create") || can("verdicts.propose")} onDone={load} />
+        <FiguresPanel cid={c.id} />
+        {(can("claims.create") || can("monitor.view")) && <ArchivePanel cid={c.id} onDone={load} />}
+        {c.history.some((v) => v.status === "approved") && <ResultCard cid={c.id} />}
         <section className="card">
           <h2>سجل الحكم</h2>
           {c.history.map((v) => <div key={v.id} className="row"><span className="f">{v.label} · {v.evidence_grade}<br /><span className="mu">{fmt(v.created_at)}</span></span><span className="pill p-n">{v.status === "approved" ? "معتمد" : v.status === "rejected" ? "مرفوض" : "مقترح"}</span></div>)}

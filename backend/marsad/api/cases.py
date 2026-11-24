@@ -428,8 +428,22 @@ def get_draft(did: int, user: User = Depends(current_user), db: Session = Depend
     return draft_view(db, c, d)
 
 
+def _archive_citations(case_id: int, user_id: int, text: str) -> None:
+    """بعد الحفظ: تُؤرشف الروابط المستشهد بها في المسودة (البند 13)."""
+    from marsad.models import User as U
+    from marsad.tools.snapshots import archive_links_in
+
+    db = next(get_db())
+    try:
+        archive_links_in(db, db.get(U, user_id), text, case_id)
+        db.commit()
+    finally:
+        db.close()
+
+
 @router.put("/drafts/{did}")
-def save_draft(did: int, body: DraftIn, user: User = Depends(require("stories.write")), db: Session = Depends(get_db)):
+def save_draft(did: int, body: DraftIn, background: BackgroundTasks, user: User = Depends(require("stories.write")),
+               db: Session = Depends(get_db)):
     """الحفظ بإصدار: إن عدّل زميل المسودة بعد أن فتحتها يُرفض الحفظ بدل أن يمحو تعديله."""
     c, d = _draft(db, did, user, "edit")
     if body.version is not None and body.version != d.version:
@@ -441,7 +455,11 @@ def save_draft(did: int, body: DraftIn, user: User = Depends(require("stories.wr
         d.status, d.approved_by = "draft", None  # أي تعديل بعد الاعتماد يعيدها للمراجعة
     d.updated_at = utcnow()
     db.commit()
-    return draft_view(db, c, d)
+    out = draft_view(db, c, d)
+    db.commit()  # إنهاء معاملة القراءة قبل أن تكتب مهمة الأرشفة بجلسة أخرى
+    if "http" in (body.body or ""):
+        background.add_task(_archive_citations, c.id, user.id, body.body)
+    return out
 
 
 class CheckIn(BaseModel):

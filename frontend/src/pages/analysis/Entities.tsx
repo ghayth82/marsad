@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Route, Routes, useParams } from "react-router-dom";
 import { api } from "../../api";
+import { useCan } from "../../session";
 
 type E = { id: number; name: string; kind: string; mentions: number; aliases: string[] };
 type St = { id: number; quote: string; said_at: string | null; is_promise: boolean; item_id: number; item_title: string; url: string };
@@ -48,7 +49,13 @@ function EntityPage() {
   const { id } = useParams();
   const [e, setE] = useState<Full | null>(null);
   const [alias, setAlias] = useState("");
-  const load = () => api<Full>(`/api/entities/${id}`).then(setE);
+  const [tracked, setTracked] = useState<{ id: number; text: string; status_ar: string; due_at: string | null; overdue: boolean; statement_id: number | null }[]>([]);
+  const [track, setTrack] = useState<{ sid: number; due: string } | null>(null);
+  const can = useCan();
+  const load = () => {
+    api<Full>(`/api/entities/${id}`).then(setE);
+    api<{ promises: typeof tracked }>(`/api/promises?entity_id=${id}`).then((r) => setTracked(r.promises)).catch(() => setTracked([]));
+  };
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!e) return null;
   return (
@@ -73,12 +80,22 @@ function EntityPage() {
           <h2>التصريحات</h2>
           {e.statements.map((s) => (
             <div key={s.id} className="row"><span className="f">«{s.quote}»<br /><span className="mu">{day(s.said_at)} · <a href={s.url} target="_blank" rel="noreferrer noopener">{s.item_title}</a></span></span>
-              {s.is_promise && <span className="pill p-ac">وعد</span>}</div>
+              {s.is_promise && <span className="pill p-ac">وعد</span>}
+              {can("claims.create") && !tracked.some((t) => t.statement_id === s.id) && (track?.sid === s.id ? (
+                <span style={{ display: "flex", gap: 6 }}>
+                  <input className="inp" type="date" style={{ width: 150 }} value={track.due} onChange={(x) => setTrack({ ...track, due: x.target.value })} aria-label="موعد الوفاء" />
+                  <button className="btn sm pri" onClick={async () => { await api("/api/promises", { method: "POST", body: { statement_id: s.id, due_at: track.due || null } }); setTrack(null); load(); }}>تتبّع</button>
+                </span>) : <button className="btn sm" onClick={() => setTrack({ sid: s.id, due: "" })}>تتبّع كوعد</button>)}</div>
           ))}
           {!e.statements.length && <span className="mu">لا تصريحات منسوبة بعد.</span>}
         </section>
       </div>
       <div className="side">
+        <section className="card">
+          <h2>الوعود المتابَعة</h2>
+          {!tracked.length && <span className="mu">لا وعود تُتابع لهذا الكيان.</span>}
+          {tracked.map((t) => <div key={t.id} className="row"><Link className="f" to="/tools/promises">«{t.text}»</Link><span className={`pill ${t.overdue ? "p-bad" : "p-n"}`}>{t.overdue ? "حان موعده" : t.status_ar}</span></div>)}
+        </section>
         <section className="card">
           <h2>نبرة التغطية حسب الموقع</h2>
           <span className="mu">مؤشر لغوي من −1 (سلبية) إلى +1 (إيجابية)، للاستئناس.</span>

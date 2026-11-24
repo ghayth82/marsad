@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from marsad.api import admin, analysis, auth, cases, claims, engines, labs, presence, ratings, reports, social, sources, stats
+from marsad.api import admin, analysis, auth, cases, claims, engines, labs, presence, ratings, reports, social, sources, stats, tools
 from marsad.core.paths import ensure_storage
 from marsad.db import get_db, get_engine, init_engine, migrate
 from marsad.rbac.service import seed_builtin_roles
@@ -86,6 +86,7 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
     app.include_router(reports.router)
     app.include_router(presence.router)
     app.include_router(stats.router)
+    app.include_router(tools.router)
 
     if static_dir is None:
         from marsad.core.paths import app_home

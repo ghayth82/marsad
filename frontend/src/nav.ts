@@ -11,6 +11,7 @@ export const SECTIONS: Section[] = [
   { path: "/stories", ar: "القصة", en: "Stories", any: ["monitor.view"] },
   { path: "/rumors", ar: "الشائعات", en: "Rumors", any: ["monitor.view", "claims.create"] },
   { path: "/claims", ar: "الادّعاء", en: "Claims", any: ["claims.create", "verdicts.propose", "verdicts.approve"] },
+  { path: "/tools", ar: "أدوات التحقق", en: "Tools", any: ["claims.create", "monitor.view", "labs.use", "cases.create"] },
   { path: "/media-lab", ar: "الصور والفيديو", en: "Media lab", any: ["labs.use"] },
   { path: "/audio-lab", ar: "الصوت", en: "Audio lab", any: ["labs.use"] },
   { path: "/entities", ar: "الكيان", en: "Entities", any: ["monitor.view"] },

@@ -100,6 +100,8 @@ def claim(cid: int, request: Request, _: User = Depends(viewer), db: Session = D
                           "grade": e.grade, "note": e.note, "is_conclusive": e.is_conclusive, "data": e.data,
                           "added_by": e.added_by, "added_at": e.added_at.isoformat()} for e in c.evidence],
             "history": [_v(v) for v in c.verdicts],
+            "factcheck": (c.meta or {}).get("factcheck"), "tip": (c.meta or {}).get("tip"),
+            "transcript": (c.meta or {}).get("transcript"),
             "claimreview": core.claimreview(db, c, str(request.base_url), _org(db))}
 
 

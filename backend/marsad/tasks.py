@@ -180,6 +180,16 @@ def alerts_tick(timestamp: int) -> dict:
         for kind in core.due(db):
             core.generate(db, kind)
         db.commit()
+        from marsad.tools import promises, tips
+
+        try:
+            tips.poll(db)  # البلاغات وربط الحسابات من بوت تيليغرام
+            tips.answer_verdicts(db)
+            tips.purge(db)
+            promises.due_reminders(db)
+            db.commit()
+        except Exception:  # noqa: BLE001 — تعذّر تيليغرام لا يوقف التنبيهات
+            db.rollback()
         sent = alerts.dispatch(db)
         db.commit()
         return {"made": made, **sent}

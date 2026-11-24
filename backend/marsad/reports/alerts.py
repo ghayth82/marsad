@@ -23,12 +23,12 @@ from marsad.models.reports import AlertDelivery
 from marsad.rbac.service import effective_permissions, get_setting, set_setting
 
 URGENT = {"rumor.return", "rumor.spike", "campaign", "follow"}
-AUDIENCE = {"rumor": "monitor.view", "campaign": "monitor.view", "follow": None, "source": "sources.manage",
+AUDIENCE = {"tip": "claims.create", "promise": "monitor.view", "workflow": None, "rumor": "monitor.view", "campaign": "monitor.view", "follow": None, "source": "sources.manage",
             "engine": "engines.manage", "report": "monitor.view", "story": "monitor.view"}
 TG_SETTING, CHATS, LINKS = "alerts.telegram", "alerts.telegram_chats", "alerts.telegram_links"
 TZ = "Asia/Amman"
 ICON = {"rumor.return": "🔁", "rumor.spike": "🚨", "campaign": "🕸", "follow": "🔔", "source.error": "⚠️", "report.morning": "☀️",
-        "report.weekly": "📊"}
+        "report.weekly": "📊", "tip.new": "📨", "promise.due": "⏰"}
 
 
 def tg_base() -> str:
@@ -82,24 +82,14 @@ def link_code(db: Session, user: User) -> dict:
 
 
 def check_link(db: Session, user: User) -> dict:
-    token = tg_token(db)
-    if not token:
+    """يقرأ رسائل البوت الجديدة (قارئ واحد للربط والبلاغات، tools/tips.py) ثم يخبر إن رُبط الحساب."""
+    from marsad.tools import tips
+
+    if not tg_token(db):
         raise ValueError("لم يُضف بوت تيليغرام بعد (الإدارة ← التنبيهات)")
-    links = dict(get_setting(db, LINKS, {}) or {})
-    mine = {c for c, v in links.items() if v["user_id"] == user.id}
-    upd = tg_call(token, "getUpdates", timeout=0, allowed_updates=["message"])
-    for u in upd.get("result", []) if upd.get("ok") else []:
-        msg = u.get("message") or {}
-        parts = (msg.get("text") or "").split()
-        if len(parts) == 2 and parts[0] == "/start" and parts[1] in mine:
-            chats = dict(get_setting(db, CHATS, {}) or {})
-            chats[str(user.id)] = msg["chat"]["id"]
-            set_setting(db, CHATS, chats)
-            for c in mine:
-                links.pop(c, None)
-            set_setting(db, LINKS, links)
-            tg_call(token, "sendMessage", chat_id=msg["chat"]["id"], text="رُبط حسابك في «مرصد التحقق». ستصلك التنبيهات هنا.")
-            return {"linked": True}
+    tips.poll(db)
+    if chat_of(db, user) is not None:
+        return {"linked": True}
     return {"linked": False, "note": "لم تصل رسالة الربط بعد. افتح الرابط واضغط «ابدأ» في تيليغرام، ثم أعد المحاولة."}
 
 

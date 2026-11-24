@@ -20,7 +20,7 @@ export function Settings() {
   return (
     <div className="cols">
       <div className="grow">{can("system.manage") && <StorageCard />}</div>
-      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Backups /><Transfer /><TelegramBot /><ReportSchedule /><Sanctions /></>}</div>
+      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Backups /><Transfer /><TelegramBot /><FactCheckKey /><ReportSchedule /><Sanctions /></>}</div>
       {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
   );
@@ -202,6 +202,28 @@ function TelegramBot() {
       <input className="inp" dir="ltr" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="رمز البوت" aria-label="رمز البوت" />
       <div style={{ display: "flex", gap: 6 }}>
         <button className="btn sm" disabled={!token.trim()} onClick={() => save(token)}>حفظ وفحص</button>
+        {st.configured && <button className="btn sm" onClick={() => save(null)}>إزالة</button>}
+      </div>
+      {msg && <div className="msg" role="status">{msg}</div>}
+    </section>
+  );
+}
+
+function FactCheckKey() {
+  const [st, setSt] = useState<{ configured: boolean; masked: string | null } | null>(null);
+  const [key, setKey] = useState("");
+  const [msg, setMsg] = useState("");
+  useEffect(() => { api<typeof st>("/api/tools/factcheck").then(setSt); }, []);
+  const save = async (k: string | null) => { setMsg(""); try { setSt(await api("/api/tools/factcheck/key", { method: "PUT", body: { key: k } })); setKey(""); setMsg(k ? "حُفظ ونجح الفحص." : "أُزيل."); } catch (x) { setMsg((x as Error).message); } };
+  if (!st) return null;
+  return (
+    <section className="card" aria-label="مفتاح Google Fact Check">
+      <h2>«هل تحقق منها أحد قبلي؟»</h2>
+      {st.configured ? <span>مفعّل <span className="mu">({st.masked})</span></span>
+        : <span className="mu" style={{ fontSize: 12 }}>مفتاح Google Fact Check Tools مجاني من Google Cloud Console (فعّل «Fact Check Tools API» ثم أنشئ مفتاح API). بدونه يبحث البرنامج في سجله فقط.</span>}
+      <input className="inp" dir="ltr" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="مفتاح API" aria-label="مفتاح Google Fact Check" />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="btn sm" disabled={!key.trim()} onClick={() => save(key)}>حفظ وفحص</button>
         {st.configured && <button className="btn sm" onClick={() => save(null)}>إزالة</button>}
       </div>
       {msg && <div className="msg" role="status">{msg}</div>}
