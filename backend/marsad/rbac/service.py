@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from marsad.audit import record
 from marsad.db import utcnow
 from marsad.models import Role, RolePermission, SystemSetting, User, UserPermission, UserRole
-from marsad.rbac.permissions import ADMIN_PERMISSION, BUILTIN_ROLES, PERMISSIONS
+from marsad.rbac.permissions import ADMIN_PERMISSION, BUILTIN_ROLES, LEGACY_PERMISSIONS, PERMISSIONS
 
 
 class PermissionError_(Exception):
@@ -111,7 +111,12 @@ def _guard_last_admin(db: Session, change) -> None:
 
 # ---------- الأدوار ----------
 
+KNOWN_PERMISSIONS_KEY = "rbac.known_permissions"
+
+
 def seed_builtin_roles(db: Session) -> None:
+    known = set(get_setting(db, KNOWN_PERMISSIONS_KEY) or LEGACY_PERMISSIONS)
+    new_perms = set(PERMISSIONS) - known
     for spec in BUILTIN_ROLES:
         role = db.scalar(select(Role).where(Role.key == spec["key"]))
         if role is None:
@@ -127,6 +132,14 @@ def seed_builtin_roles(db: Session) -> None:
             for p in PERMISSIONS:
                 if p not in have:
                     db.add(RolePermission(role_id=role.id, permission=p))
+        else:
+            # صلاحية جديدة في إصدار لاحق تدخل الدور الجاهز الذي يذكرها، مرة واحدة فقط
+            have = {rp.permission for rp in role.permissions}
+            for p in spec["permissions"]:
+                if p in new_perms and p not in have:
+                    db.add(RolePermission(role_id=role.id, permission=p))
+    if new_perms or get_setting(db, KNOWN_PERMISSIONS_KEY) is None:
+        set_setting(db, KNOWN_PERMISSIONS_KEY, sorted(PERMISSIONS))
     db.flush()
 
 

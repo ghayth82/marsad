@@ -19,6 +19,7 @@ export const SECTIONS: Section[] = [
   { path: "/ratings", ar: "التقييم", en: "Ratings", any: ["ratings.view", "ratings.configure"] },
   { path: "/engines", ar: "المحركات", en: "Engines", any: ["engines.use", "engines.manage"] },
   { path: "/reports", ar: "التقارير", en: "Reports", any: ["monitor.view"] },
+  { path: "/stats", ar: "الإحصاءات", en: "Statistics", any: ["stats.view"] },
   { path: "/training", ar: "التدريب", en: "Training", any: ["training.participate", "training.manage"] },
   { path: "/admin", ar: "الإدارة", en: "Admin", any: ["users.manage", "system.manage", "audit.view"] },
   { path: "/help", ar: "الدليل", en: "Help", any: [] },
