@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { fmtPublished } from "../../lib/time";
 import { api } from "../../api";
 import { useCan } from "../../session";
 
 type S = { id: number; title: string; item_count: number; source_count: number; updated_at: string };
-type TL = { item_id: number; title: string; outlet: string; url: string; time: string; basis: string; published_at: string | null; captured_at: string; archive_sha256: string; status: string };
+type TL = { item_id: number; title: string; outlet: string; url: string; time: string; basis: string; published_at: string | null; published_date_only?: boolean; captured_at: string; archive_sha256: string; status: string };
 type Rel = { item_id: number; outlet: string; kind: string; from_outlet: string | null; similarity: number; adds: string[] };
 type View = { story: S & { locked: boolean }; first: TL | null; timeline: TL[]; relations: Rel[];
   comparison: { numbers: { unit: string; values: { value: string; outlets: string[] }[]; agreed: boolean }[];
@@ -69,7 +70,7 @@ function StoryPage() {
           {v.first && (
             <div className="msg ok">
               <b>أول ناشر: {v.first.outlet}</b> · {fmt(v.first.time)} ({v.first.basis})
-              <br /><span className="mu">رُصدت {fmt(v.first.captured_at)}{v.first.published_at ? ` · المعلن ${fmt(v.first.published_at)}` : ""}{v.first.archive_sha256 && ` · بصمة النسخة المؤرشفة ${v.first.archive_sha256.slice(0, 12)}…`}</span>
+              <br /><span className="mu">رُصدت {fmt(v.first.captured_at)}{v.first.published_at ? ` · المعلن ${fmtPublished(v.first.published_at, v.first.published_date_only)}` : ""}{v.first.archive_sha256 && ` · بصمة النسخة المؤرشفة ${v.first.archive_sha256.slice(0, 12)}…`}</span>
             </div>
           )}
           {msg && <div className="msg ok" role="status">{msg}</div>}

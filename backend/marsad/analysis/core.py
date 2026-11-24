@@ -168,12 +168,20 @@ def merge_stories(db: Session, keep: Story, other: Story) -> Story:
 
 def first_time(i: Item) -> tuple[datetime, str]:
     """أبكر وقت موثوق للمادة: المعلن إن لم يتجاوز وقت رصدنا، وإلا وقت الرصد."""
-    if i.published_at and i.published_at <= (i.captured_at + timedelta(minutes=5)):
+    from marsad.monitor.service import published_date_only
+
+    if i.published_at and not published_date_only(i) and i.published_at <= (i.captured_at + timedelta(minutes=5)):
         return i.published_at, "وقت النشر المعلن"
     return i.captured_at, "وقت رصدنا لها"
 
 
 ATTRIB = re.compile(r"(نقلا عن|نقلًا عن|وفقا ل|وفقًا ل|حسب|بحسب|ذكرت|ذكر موقع|اوردت|أوردت|افادت|أفادت|قالت صحيفه|قالت وكاله|عن وكاله)", re.I)
+
+
+def published_date_only_(i: Item) -> bool:
+    from marsad.monitor.service import published_date_only
+
+    return published_date_only(i)
 
 
 def story_view(db: Session, story: Story) -> dict:
@@ -184,6 +192,7 @@ def story_view(db: Session, story: Story) -> dict:
         t, basis = first_time(i)
         timeline.append({"item_id": i.id, "title": i.title, "outlet": outlets[i.outlet_id].name, "url": i.url,
                          "time": t.isoformat(), "basis": basis, "published_at": i.published_at.isoformat() if i.published_at else None,
+                         "published_date_only": published_date_only_(i),
                          "captured_at": i.captured_at.isoformat(), "archive_sha256": i.versions[0].archive_sha256 if i.versions else "",
                          "status": i.status})
         if idx == 0:

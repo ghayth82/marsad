@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { fmtPublished } from "../../lib/time";
 import { api } from "../../api";
 
-type It = { id: number; url: string; title: string; excerpt: string; source_title: string; source_kind: string; published_at: string | null;
+type It = { id: number; url: string; title: string; excerpt: string; source_title: string; source_kind: string; published_at: string | null; published_date_only?: boolean;
   captured_at: string; status: "live" | "edited" | "deleted"; version: number; media: { type: string; url: string }[]; author: string };
 type Full = It & { text: string; versions: { version: number; change: string; title: string; captured_at: string; archived: boolean; archive_sha256: string }[];
   diffs: { from: number; to: number; title_changed: boolean; title_before: string; title_after: string; text: { op: string; before: string; after: string }[] }[] };
@@ -48,7 +49,7 @@ export function Live() {
           {data?.items.map((i) => (
             <div key={i.id} className="row" style={{ cursor: "pointer", background: sel === i.id ? "var(--acs)" : undefined, borderRadius: 8, padding: "8px 6px" }}
               onClick={() => setSel(i.id)} onKeyDown={(e) => e.key === "Enter" && setSel(i.id)} tabIndex={0} role="button" aria-pressed={sel === i.id}>
-              <span className="f"><b>{i.title || "(دون عنوان)"}</b><br /><span className="mu">{i.source_title} · رُصد {fmt(i.captured_at)}{i.published_at ? ` · نُشر ${fmt(i.published_at)}` : ""}</span></span>
+              <span className="f"><b>{i.title || "(دون عنوان)"}</b><br /><span className="mu">{i.source_title} · رُصد {fmt(i.captured_at)}{i.published_at ? ` · نُشر ${fmtPublished(i.published_at, i.published_date_only)}` : ""}</span></span>
               {i.status === "edited" && <span className="pill p-warn">عُدّل ({i.version - 1})</span>}
               {i.status === "deleted" && <span className="pill p-bad">محذوف</span>}
               {i.media.some((m) => m.type === "video") && <span className="pill p-n">فيديو</span>}

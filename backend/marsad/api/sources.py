@@ -66,7 +66,8 @@ def item_out(i: Item, full: bool = False) -> dict:
     d = {"id": i.id, "url": i.url, "title": i.title, "excerpt": i.text[:280], "source_id": i.source_id,
          "outlet_id": i.outlet_id, "source_title": i.source.title, "source_kind": i.source.kind,
          "published_at": _dt(i.published_at), "captured_at": _dt(i.captured_at), "status": i.status,
-         "version": i.version, "media": i.media, "author": i.author, "story_id": i.story_id}
+         "version": i.version, "media": i.media, "author": i.author, "story_id": i.story_id,
+         "published_date_only": mon.published_date_only(i)}
     if full:
         d["text"] = i.text
         d["meta"] = i.meta

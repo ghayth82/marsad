@@ -42,6 +42,13 @@ def social_kind(url: str) -> str | None:
     return None
 
 
+def has_time(value) -> bool:
+    """هل في قيمة التاريخ ساعة؟ «2026-11-24» تاريخ فقط؛ «2026-11-24T09:15» فيها ساعة."""
+    if isinstance(value, datetime):
+        return True
+    return bool(re.search(r"\d{1,2}:\d{2}", str(value or "")))
+
+
 def _dt(value) -> datetime | None:
     if not value:
         return None
@@ -111,8 +118,10 @@ def read_sitemap(url: str, meta: dict, limit: int = 60) -> tuple[list[dict], dic
             continue
         title = u.xpath(".//*[local-name()='title']")
         date = u.xpath(".//*[local-name()='publication_date']") or u.xpath("./lastmod")
+        dv = date[0].text_content() if date else None
         out.append({"url": loc[0].text_content().strip(), "title": title[0].text_content().strip() if title else "",
-                    "text": "", "summary": "", "published_at": _dt(date[0].text_content()) if date else None,
+                    "text": "", "summary": "", "published_at": _dt(dv) if dv else None,
+                    "date_only": bool(dv) and not has_time(dv),
                     "author": "", "media": [], "full": False})
     out.sort(key=lambda x: x["published_at"] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     return out[:limit], {}
