@@ -3,7 +3,7 @@ import { api } from "../../api";
 import { useCan } from "../../session";
 
 type Src = { id: number; url: string; kind: string; kind_ar: string; read_url: string; title: string; tags: string[]; check_minutes: number;
-  active: boolean; status: "new" | "ok" | "error" | "paused"; last_checked_at: string | null; last_item_at: string | null; last_error: string; silent: boolean };
+  active: boolean; status: "new" | "ok" | "error" | "paused"; last_checked_at: string | null; last_item_at: string | null; last_error: string; silent: boolean; checking?: boolean };
 type Outlet = { id: number; name: string; kind: string; country: string; website: string; logo_url: string; tags: string[]; items: number; sources: Src[] };
 type Disc = { url: string; kind: string; read_url: string; title: string; outlet_name: string; logo_url: string; social: { platform: string; url: string }[]; note?: string };
 
@@ -23,6 +23,13 @@ export function Sources() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err" | "warn"; text: string } | null>(null);
   const load = useCallback(() => api<Outlet[]>("/api/outlets").then(setOutlets).catch((e) => setMsg({ kind: "err", text: e.message })), []);
   useEffect(() => { load(); }, [load]);
+  // ما دام مصدر يُفحص: تحديث كل 4 ثوانٍ فتظهر المواد والحالة تباعًا
+  const anyChecking = outlets.some((o) => o.sources.some((s) => s.checking));
+  useEffect(() => {
+    if (!anyChecking) return;
+    const t = setInterval(load, 4000);
+    return () => clearInterval(t);
+  }, [anyChecking, load]);
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setMsg(null);
     try { await fn(); await load(); setMsg({ kind: "ok", text: ok }); } catch (e) { setMsg({ kind: "err", text: (e as Error).message }); }
@@ -56,7 +63,7 @@ export function Sources() {
                   <tbody>{o.sources.map((s) => (
                     <tr key={s.id}>
                       <td>{s.kind_ar}<br /><a href={s.url} target="_blank" rel="noreferrer noopener" dir="ltr" className="mu">{s.url.length > 60 ? s.url.slice(0, 60) + "…" : s.url}</a></td>
-                      <td><span className={`pill ${STATUS[s.status][0]}`}>{STATUS[s.status][1]}</span>
+                      <td>{s.checking ? <span className="pill p-warn">جارٍ الفحص…</span> : <span className={`pill ${STATUS[s.status][0]}`}>{STATUS[s.status][1]}</span>}
                         {s.silent && <><br /><span className="pill p-warn">لا مواد جديدة منذ مدة</span></>}
                         {s.last_error && <><br /><span className="mu" style={{ color: "var(--bad)" }}>{s.last_error}</span></>}</td>
                       <td>{ago(s.last_checked_at)}</td>
@@ -67,7 +74,10 @@ export function Sources() {
                           {[5, 15, 30, 60, 180, 720, 1440].map((m) => <option key={m} value={m}>{m < 60 ? `${m} دقيقة` : `${m / 60} ساعة`}</option>)}
                         </select>) : `${s.check_minutes} د`}</td>
                       {manage && <td style={{ whiteSpace: "nowrap" }}>
-                        <button className="btn sm" onClick={() => run(() => api(`/api/sources/${s.id}/check`, { method: "POST" }), "فُحص المصدر الآن.")}>افحص الآن</button>{" "}
+                        <button className="btn sm" disabled={s.checking} onClick={() => run(async () => {
+                          const r = await api<{ already?: boolean }>(`/api/sources/${s.id}/check`, { method: "POST" });
+                          return r;
+                        }, "بدأ الفحص. قد يستغرق فحص موقع كامل بضع دقائق، وتظهر المواد هنا وفي الرصد المباشر تباعًا.")}>{s.checking ? "يُفحص…" : "افحص الآن"}</button>{" "}
                         {s.active ? <button className="btn sm" onClick={() => run(() => api(`/api/sources/${s.id}`, { method: "DELETE" }), "أُوقف رصد المصدر؛ المواد المرصودة باقية.")}>إيقاف</button>
                           : <button className="btn sm" onClick={() => run(() => api(`/api/sources/${s.id}`, { method: "PUT", body: { active: true } }), "استؤنف الرصد.")}>استئناف</button>}
                       </td>}
@@ -111,9 +121,10 @@ function PasteLink({ onAdded }: { onAdded: (t: string) => void }) {
     if (!d) return;
     setErr(""); setBusy(true);
     try {
-      const r = await api<{ also: unknown[] }>("/api/sources", { method: "POST", body: { url: d.url, outlet_name: name, tags: tags.split(/[،,]/).map((t) => t.trim()).filter(Boolean), also } });
+      const r = await api<{ also: unknown[]; skipped?: { url: string; reason: string }[] }>("/api/sources", { method: "POST", body: { url: d.url, outlet_name: name, tags: tags.split(/[،,]/).map((t) => t.trim()).filter(Boolean), also } });
       setD(null); setUrl(""); setTags("");
-      onAdded(`أُضيف المصدر${r.also.length ? ` و${r.also.length} من صفحاته` : ""}، وبدأ رصده الآن.`);
+      onAdded(`أُضيف المصدر${r.also.length ? ` و${r.also.length} من صفحاته` : ""}، وبدأ رصده الآن.` +
+        (r.skipped?.length ? ` لم تُضف ${r.skipped.length} صفحة: ${r.skipped.map((x) => `${x.url} (${x.reason})`).join("، ")}` : ""));
     } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
   };
   return (
@@ -139,7 +150,7 @@ function PasteLink({ onAdded }: { onAdded: (t: string) => void }) {
               <legend className="mu">صفحات الجهة المكتشفة: أضفها للجهة نفسها</legend>
               <div className="tabs">{d.social.map((s) => (
                 <label key={s.url} className="chk"><input type="checkbox" checked={also.includes(s.url)} onChange={(e) => setAlso(e.target.checked ? [...also, s.url] : also.filter((x) => x !== s.url))} />
-                  {PLATFORM[s.platform] ?? s.platform}{["facebook", "instagram", "x", "tiktok"].includes(s.platform) && <span className="mu"> (تنتظر المزوّد)</span>}</label>
+                  {PLATFORM[s.platform] ?? s.platform} <bdi className="mu" dir="ltr">{s.url.replace(/^https:\/\/[^/]+/, "")}</bdi>{["facebook", "instagram", "x", "tiktok"].includes(s.platform) && <span className="mu"> (تنتظر المزوّد)</span>}</label>
               ))}</div>
             </fieldset>
           )}

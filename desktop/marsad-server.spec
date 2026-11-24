@@ -14,6 +14,10 @@ for pkg in ("procrastinate", "psycopg", "psycopg_binary", "alembic", "argon2", "
 hidden += collect_submodules("marsad")
 # ملفات الترحيلات (القالب والإصدارات) تُقرأ من القرص وقت التشغيل
 datas += [(str(backend / "marsad" / "migrations"), "marsad/migrations")]
+# كل ملف بيانات غير بايثون داخل الحزمة (مثل قائمة المصادر المقترحة) يُضمَّن تلقائيًا
+for f in (backend / "marsad").rglob("*"):
+    if f.is_file() and f.suffix not in (".py", ".pyc") and "migrations" not in f.parts and "__pycache__" not in f.parts:
+        datas.append((str(f), str(f.parent.relative_to(backend))))
 
 a = Analysis(
     [str(backend / "marsad" / "desktop.py")],

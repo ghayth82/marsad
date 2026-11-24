@@ -112,6 +112,36 @@ def _fuel_item(admin, site):
     return next(i for i in items if i["title"] == "تعديل أسعار المحروقات")["id"]
 
 
+def test_one_bad_page_does_not_block_the_outlet(admin, site, monkeypatch):
+    from marsad.monitor import readers
+
+    monkeypatch.setattr(readers, "youtube_channel_id", lambda url: None)
+    # فيديو يوتيوب منفرد (لا قناة) ورابط مكرر: يُتخطّيان ويُضاف الموقع وتيليغرام
+    r = admin.post("/api/sources", json={"url": site.url, "also": [
+        "https://www.youtube.com/watch?v=abc", "https://t.me/testchannel", "https://t.me/testchannel"]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [x["kind"] for x in body["also"]] == ["telegram"]
+    assert len(body["skipped"]) == 2 and all(x["reason"] for x in body["skipped"])
+    assert {s["kind"] for s in admin.get("/api/outlets").json()[0]["sources"]} == {"rss", "telegram"}
+
+
+def test_check_now_runs_in_background_and_reports_running(admin, site):
+    from marsad.api import sources as api_sources
+
+    sid = admin.post("/api/sources", json={"url": site.url}).json()["source"]["id"]
+    r = admin.post(f"/api/sources/{sid}/check").json()
+    assert r["started"] is True and "source" in r  # يعود فورًا دون انتظار جلب المقالات
+    api_sources._CHECKING.add(sid)  # فحص جارٍ: لا يبدأ فحص ثانٍ، والواجهة ترى الحالة
+    try:
+        r = admin.post(f"/api/sources/{sid}/check").json()
+        assert r["already"] is True and r["source"]["checking"] is True
+    finally:
+        api_sources._CHECKING.discard(sid)
+    s = admin.get("/api/outlets").json()[0]["sources"][0]
+    assert s["status"] == "ok" and s["last_checked_at"] and s["checking"] is False
+
+
 def test_case10_edited_headline_two_versions_and_diff(admin, site):
     from marsad.db import get_db
     from marsad.models.monitoring import Item

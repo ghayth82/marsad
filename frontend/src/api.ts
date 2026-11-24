@@ -7,16 +7,23 @@ export class ApiError extends Error {
 }
 
 export async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(path, {
-    method: opts.method ?? "GET",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", "X-Marsad": "1" },
-    body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: opts.method ?? "GET",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-Marsad": "1" },
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    });
+  } catch {
+    throw new ApiError(0, "تعذّر الاتصال بالخادم");
+  }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     const d = data?.detail;
-    const msg = typeof d === "string" ? d : Array.isArray(d) ? "قيمة غير صحيحة في الحقول" : "تعذّر الاتصال بالخادم";
+    const msg = typeof d === "string" ? d : Array.isArray(d) ? "قيمة غير صحيحة في الحقول"
+      : res.status >= 500 ? `حدث خطأ داخلي في الخادم (${res.status}). سُجّل في سجل الخادم.`
+      : `تعذّر تنفيذ الطلب (${res.status})`;
     throw new ApiError(res.status, msg);
   }
   return data as T;

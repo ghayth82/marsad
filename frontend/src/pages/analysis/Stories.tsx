@@ -26,14 +26,14 @@ export function Stories() {
 function List() {
   const [rows, setRows] = useState<S[]>([]);
   const [multi, setMulti] = useState(true);
-  useEffect(() => { api<S[]>(`/api/stories?min_items=${multi ? 2 : 1}`).then(setRows); }, [multi]);
+  useEffect(() => { api<S[]>(`/api/stories?min_sources=${multi ? 2 : 1}`).then(setRows); }, [multi]);
   return (
     <section className="card">
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <h2 style={{ flex: 1 }}>القصص</h2>
         <label className="chk"><input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} />التي نشرها أكثر من مصدر فقط</label>
       </div>
-      {!rows.length && <span className="mu">لا قصص بعد. تتكوّن تلقائيًا من المواد المرصودة.</span>}
+      {!rows.length && <span className="mu">{multi ? "لا قصة نشرتها جهتان أو أكثر بعد. أزل علامة «أكثر من مصدر» لترى كل القصص، ومنها قصص المصدر الواحد." : "لا قصص بعد. تتكوّن تلقائيًا من المواد المرصودة."}</span>}
       {rows.map((s) => (
         <div key={s.id} className="row">
           <span className="f"><Link to={`/stories/${s.id}`}>{s.title}</Link><br /><span className="mu">آخر تحديث {fmt(s.updated_at)}</span></span>

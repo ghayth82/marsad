@@ -51,6 +51,17 @@ def test_case13_five_sites_same_news_one_story(admin, feed):
     assert len(other_sids) == 4 and sid not in other_sids  # لا خلط مع أخبار أخرى
 
 
+def test_one_site_twice_is_not_multi_source(admin, feed):
+    (t1, x1), (t2, x2) = GOLD["same"][:2]
+    a = feed("خبرني", t1, x1, published=T0)
+    b = feed("خبرني", t2, x2, published=T0 + timedelta(minutes=20))
+    sid = admin.get(f"/api/items/{a}").json()["story_id"]
+    assert admin.get(f"/api/items/{b}").json()["story_id"] == sid
+    st = next(s for s in admin.get("/api/stories").json() if s["id"] == sid)
+    assert st["item_count"] == 2 and st["source_count"] == 1
+    assert sid not in {s["id"] for s in admin.get("/api/stories?min_sources=2").json()}
+
+
 def test_case14_first_publisher_across_timezones(admin, feed):
     from datetime import timezone as tz
 

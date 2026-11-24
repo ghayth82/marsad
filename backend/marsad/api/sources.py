@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import threading
 import csv
 import gzip
 import io
@@ -39,6 +41,11 @@ def _dt(d):
     return d.isoformat() if d else None
 
 
+log = logging.getLogger(__name__)
+_CHECKING: set[int] = set()  # مصادر يجري فحصها الآن في هذه العملية
+_CHECK_LOCK = threading.Lock()
+
+
 def source_out(s: Source) -> dict:
     silent = bool(s.status == "ok" and s.last_item_at and
                   utcnow() - s.last_item_at > timedelta(minutes=max(24 * 60, s.check_minutes * 40)))
@@ -46,7 +53,7 @@ def source_out(s: Source) -> dict:
             "read_url": s.read_url, "title": s.title, "tags": s.tags, "check_minutes": s.check_minutes,
             "active": s.active, "status": s.status, "last_checked_at": _dt(s.last_checked_at),
             "last_ok_at": _dt(s.last_ok_at), "last_item_at": _dt(s.last_item_at), "last_error": s.last_error,
-            "consecutive_errors": s.consecutive_errors, "silent": silent}
+            "consecutive_errors": s.consecutive_errors, "silent": silent, "checking": s.id in _CHECKING}
 
 
 def outlet_out(db: Session, o: Outlet) -> dict:
@@ -166,31 +173,49 @@ def _add_source(db: Session, actor: User, body: SourceIn) -> Source:
 def create_source(body: SourceIn, bg: BackgroundTasks, actor: User = Depends(manage_sources), db: Session = Depends(get_db)):
     try:
         s = _add_source(db, actor, body)
-        extra = []
-        for u in body.also:
+        extra, skipped = [], []
+        for u in body.also:  # فشل صفحة واحدة لا يوقف إضافة الجهة ولا بقية صفحاتها
             try:
-                extra.append(_add_source(db, actor, SourceIn(url=u, outlet_id=s.outlet_id, check_minutes=body.check_minutes,
-                                                             tags=body.tags)))
-            except HTTPException:
-                pass
+                with db.begin_nested():
+                    extra.append(_add_source(db, actor, SourceIn(url=u, outlet_id=s.outlet_id, check_minutes=body.check_minutes,
+                                                                 tags=body.tags)))
+            except HTTPException as e:
+                skipped.append({"url": u, "reason": str(e.detail)})
+            except (ValueError, FetchError) as e:
+                skipped.append({"url": u, "reason": str(e)})
     except (ValueError, FetchError) as e:
         raise HTTPException(422, f"تعذّر إضافة المصدر: {e}") from None
     db.commit()
     for x in [s, *extra]:
         bg.add_task(check_now_bg, x.id)  # يبدأ الرصد فورًا
-    return {"source": source_out(s), "also": [source_out(x) for x in extra]}
+    return {"source": source_out(s), "also": [source_out(x) for x in extra], "skipped": skipped}
 
 
-def check_now_bg(source_id: int) -> None:
+def _claim(source_id: int) -> bool:
+    with _CHECK_LOCK:
+        if source_id in _CHECKING:
+            return False
+        _CHECKING.add(source_id)
+        return True
+
+
+def check_now_bg(source_id: int, claimed: bool = False) -> None:
+    """فحص في الخلفية: يحفظ الحالة والمواد تباعًا فتظهر في الواجهة أثناء الفحص."""
     from marsad.db import get_db as _g
 
+    if not claimed and not _claim(source_id):
+        return  # فحص آخر لهذا المصدر جارٍ
     db = next(_g())
     try:
         s = db.get(Source, source_id)
         if s:
-            mon.check_source(db, s)
+            mon.check_source(db, s, commit_every=5)
             db.commit()
+    except Exception:
+        db.rollback()
+        log.exception("فشل فحص المصدر %s", source_id)
     finally:
+        _CHECKING.discard(source_id)
         db.close()
 
 
@@ -228,11 +253,19 @@ def delete_source(sid: int, actor: User = Depends(manage_sources), db: Session =
 
 
 @router.post("/sources/{sid}/check")
-def check_now(sid: int, actor: User = Depends(manage_sources), db: Session = Depends(get_db)):
+def check_now(sid: int, bg: BackgroundTasks, wait: bool = False, actor: User = Depends(manage_sources),
+              db: Session = Depends(get_db)):
+    """يبدأ الفحص في الخلفية ويعود فورًا (قد يستغرق فحص موقع كامل دقائق). wait=true للفحص المتزامن."""
     s = db.get(Source, sid) or _404()
-    r = mon.check_source(db, s)
+    if wait:
+        r = mon.check_source(db, s)
+        db.commit()
+        return {**r, "started": False, "source": source_out(s)}
+    if not _claim(sid):
+        return {"started": False, "already": True, "source": source_out(s)}
     db.commit()
-    return {**r, "source": source_out(s)}
+    bg.add_task(check_now_bg, sid, True)
+    return {"started": True, "already": False, "source": source_out(s)}
 
 
 @router.get("/sources/export")

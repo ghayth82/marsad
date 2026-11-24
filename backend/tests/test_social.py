@@ -97,7 +97,7 @@ def add(admin, url):
 def test_connectors_waiting_without_provider(admin):
     s = add(admin, "https://x.com/MinistryJO")
     assert s["kind"] == "social"
-    r = admin.post(f"/api/sources/{s['id']}/check").json()
+    r = admin.post(f"/api/sources/{s['id']}/check?wait=true").json()
     assert "ينتظر مزوّد بيانات" in r["error"]
     st = admin.get("/api/social/providers").json()
     x = next(p for p in st["platforms"] if p["platform"] == "x")
@@ -130,7 +130,7 @@ def test_official_connectors_all_platforms(admin, fake_api):
     for url in ("https://x.com/MinistryJO", "https://www.facebook.com/newspage", "https://www.instagram.com/jerashfest",
                 "https://www.tiktok.com/@roadsjo"):
         s = add(admin, url)  # الإضافة تبدأ الرصد فورًا
-        r = admin.post(f"/api/sources/{s['id']}/check").json()
+        r = admin.post(f"/api/sources/{s['id']}/check?wait=true").json()
         assert r.get("error") in (None, "") and r["new"] == 0 and r["source"]["status"] == "ok", r  # الفحص الثاني: لا تكرار
     items = admin.get("/api/items?limit=50").json()
     rows = items["items"] if isinstance(items, dict) else items
@@ -167,7 +167,7 @@ def test_apify_provider(admin, fake_api):
     assert json.loads(call["body"])["twitterHandles"] == ["someone"]
     # إزالة المزوّد تعيد الموصل إلى الانتظار
     admin.put("/api/social/providers/x", json={"provider": None})
-    assert "ينتظر" in admin.post(f"/api/sources/{s['id']}/check").json()["error"]
+    assert "ينتظر" in admin.post(f"/api/sources/{s['id']}/check?wait=true").json()["error"]
 
 
 def test_coordinated_campaign_indicators(admin):

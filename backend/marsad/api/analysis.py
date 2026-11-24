@@ -28,8 +28,9 @@ def _404():
 
 
 @router.get("/stories")
-def stories(limit: int = 40, min_items: int = 1, _: User = Depends(view), db: Session = Depends(get_db)):
-    rows = db.scalars(select(Story).where(Story.item_count >= min_items).order_by(Story.updated_at.desc()).limit(min(limit, 200)))
+def stories(limit: int = 40, min_items: int = 1, min_sources: int = 1, _: User = Depends(view), db: Session = Depends(get_db)):
+    rows = db.scalars(select(Story).where(Story.item_count >= min_items, Story.source_count >= min_sources)
+                      .order_by(Story.updated_at.desc()).limit(min(limit, 200)))
     return [{"id": s.id, "title": s.title, "item_count": s.item_count, "source_count": s.source_count,
              "updated_at": s.updated_at.isoformat(), "created_at": s.created_at.isoformat()} for s in rows]
 

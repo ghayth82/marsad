@@ -114,7 +114,7 @@ def store_entry(db: Session, src: Source, e: dict, fetch_full: bool = True) -> I
     return item
 
 
-def check_source(db: Session, src: Source, fetch_full: bool = True) -> dict:
+def check_source(db: Session, src: Source, fetch_full: bool = True, commit_every: int = 0) -> dict:
     """يفحص المصدر الآن. أي خطأ يُسجَّل؛ وبعد 3 أخطاء متتالية يصل تنبيه، فلا يتوقف مصدر بصمت."""
     now = utcnow()
     if (src.meta or {}).get("auto_discover"):
@@ -163,11 +163,15 @@ def check_source(db: Session, src: Source, fetch_full: bool = True) -> dict:
         db.add(Notification(kind="source.recovered", text=f"عاد رصد المصدر «{src.title or src.url}» للعمل."))
     src.meta = {**(src.meta or {}), **{k: v for k, v in meta.items() if v}}
     src.status, src.consecutive_errors, src.last_error, src.last_ok_at = "ok", 0, "", now
+    if commit_every:
+        db.commit()  # تظهر الحالة فورًا قبل جلب المقالات
     new = 0
     for e in entries:
         if store_entry(db, src, e, fetch_full=fetch_full):
             new += 1
             src.last_item_at = now
+            if commit_every and new % commit_every == 0:
+                db.commit()  # تظهر المواد تباعًا في الفحص الطويل
     return {"new": new, "error": ""}
 
 

@@ -104,7 +104,7 @@ def item_signature(i: Item) -> dict[str, float]:
 def _refresh_story(db: Session, story: Story) -> None:
     items = list(db.scalars(select(Item).where(Item.story_id == story.id)))
     story.item_count = len(items)
-    story.source_count = len({i.source_id for i in items})
+    story.source_count = len({i.outlet_id for i in items})  # جهات مختلفة (موقع الجهة وقناتها جهة واحدة)
     if items:
         first = min(items, key=lambda x: first_time(x)[0])
         story.first_item_id = first.id
