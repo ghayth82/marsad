@@ -29,8 +29,8 @@ def main() -> int:
         page.goto(f"{BASE}/reports")
         page.get_by_role("button", name="موجز آخر 24 ساعة").click()
         page.get_by_role("link", name="الموجز الصباحي", exact=False).first.click()
-        expect(page.get_by_text("مادة جديدة")).to_be_visible()
         expect(page.get_by_role("heading", name="القصص الصاعدة")).to_be_visible()
+        expect(page.get_by_text("مادة جديدة", exact=True)).to_be_visible()
         page.screenshot(path=SHOTS / "80-report.png", full_page=True)
 
         page.goto(f"{BASE}/")

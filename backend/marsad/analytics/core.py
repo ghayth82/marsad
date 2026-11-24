@@ -320,9 +320,10 @@ def team(db: Session, start: datetime, end: datetime) -> dict:
             per[v.author_id]["hours"].append(max(0.0, _hours(claim_seen(c), _aware(v.approved_at))))
     # اتفاق المحرك مع الحكم النهائي: كل ادّعاء له اقتراح من المحركات وحكم معتمد
     pairs = []
-    for c in db.scalars(select(Claim).join(Verdict, Verdict.claim_id == Claim.id)
-                        .where(Verdict.engine_batch_id.is_not(None), Verdict.created_at >= start, Verdict.created_at < end)
-                        .distinct()).all():
+    # المعرّفات أولًا: DISTINCT على صفوف فيها JSON لا يعمل في PostgreSQL
+    eng_ids = db.scalars(select(Verdict.claim_id).where(Verdict.engine_batch_id.is_not(None), Verdict.created_at >= start,
+                                                       Verdict.created_at < end).distinct()).all()
+    for c in db.scalars(select(Claim).where(Claim.id.in_(eng_ids))).all() if eng_ids else []:
         eng = next((v for v in c.verdicts if v.engine_batch_id), None)
         fin = final_verdict(c)
         if eng and fin:
