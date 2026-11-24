@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
@@ -29,8 +30,38 @@ def _bootstrap() -> None:
     try:
         seed_builtin_roles(db)
         db.commit()
+        _schedule_data_upgrades(db)
     finally:
         db.close()
+
+
+def _schedule_data_upgrades(db) -> None:
+    """ترقيات بيانات تُجرى مرة واحدة بعد تحسين البرنامج (مثل إعادة استخراج الكيانات)، في الخلفية."""
+    import threading
+
+    from sqlalchemy import select
+
+    from marsad.analysis.core import ENTITIES_REV, reprocess_if_needed
+    from marsad.models.monitoring import Item
+    from marsad.rbac.service import get_setting, set_setting
+
+    if int(get_setting(db, "entities_rev", 1) or 1) >= ENTITIES_REV:
+        return
+    if db.scalar(select(Item.id).limit(1)) is None:  # قاعدة جديدة: لا شيء يُعاد
+        set_setting(db, "entities_rev", ENTITIES_REV)
+        db.commit()
+        return
+
+    def run() -> None:
+        s = next(get_db())
+        try:
+            reprocess_if_needed(s)
+        except Exception:
+            logging.getLogger(__name__).exception("فشلت إعادة معالجة الكيانات")
+        finally:
+            s.close()
+
+    threading.Thread(target=run, name="entities-upgrade", daemon=True).start()
 
 
 @asynccontextmanager

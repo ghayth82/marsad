@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import math
+import logging
 import re
+import unicodedata
 from collections import Counter
 from datetime import datetime, timedelta
 
@@ -290,7 +292,48 @@ def compare_narratives(items: list[Item], outlets: dict[int, Outlet]) -> dict:
 # ---------- الكيانات والتصريحات ----------
 
 ROLE = r"(وزير|وزيرة|رئيس|رئيسة|مدير|مديرة|محافظ|أمين عام|امين عام|الناطق باسم|المتحدث باسم|الناطق الرسمي باسم|المتحدث الرسمي باسم|سفير|قائد)"
-TITLE = r"(الملك|الأمير|الامير|الشيخ|الدكتور|د\.|المهندس|العين|النائب|السيدة|السيد)"
+log = logging.getLogger(__name__)
+TITLE = r"(الملك|الملكة|الأمير|الامير|الأميرة|الاميرة|الشيخ|الشيخة|الدكتور|الدكتورة|د\.|المهندس|المهندسة|العين|النائب|السيدة|السيد)"
+ROYAL = {"الملك", "الملكة", "الأمير", "الامير", "الأميرة", "الاميرة"}
+ORDINALS = set(normalize_ar("الأول الثاني الثالث الرابع الخامس السادس").split())
+_COMPOUND = set(normalize_ar("عبد أبو ابو أبي ابي").split())  # «عبد الله»، «أبو عمر»: كلمتان باسم واحد
+_MARKS = re.compile(r"[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]")  # الحركات والتطويل
+
+
+def prep_text(text: str) -> str:
+    """قبل استخراج الأسماء: «ﷲ» تصير «الله» (NFKC)، وتُحذف الحركات والتطويل التي كانت تقطع الاسم («عبدُالله»)."""
+    return _MARKS.sub("", unicodedata.normalize("NFKC", text or ""))
+
+
+def _person(words: list[str], royal: bool = False) -> list[str]:
+    """اسم الشخص بعد اللقب أو المنصب: اسم أول غير معرّف (أو مركّب «عبد الله»)، ثم اسم عائلة معرّف أو اسم أب،
+    ولا يدخله ما بعده («الوفد»). للملك والأمير: الاسم ثم الترتيب («الثاني») ثم «ابن/بن» واسم واحد."""
+    out: list[str] = []
+    i, n = 0, len(words)
+    norm = [normalize_ar(w) for w in words]
+    if not n or norm[0] in _STOP_NEXT or (norm[0].startswith("ال") and not royal):  # «الأمير الحسين» مقبول
+        return out
+    if norm[0] in _COMPOUND and n > 1 and norm[1] not in _STOP_NEXT:
+        out, i = words[:2], 2
+    else:
+        out, i = [words[0]], 1
+    if royal:
+        if i < n and norm[i] in ORDINALS:
+            out.append(words[i])
+            i += 1
+        if i + 1 < n and norm[i] in ("ابن", "بن", "بنت"):
+            j = i + 3 if norm[i + 1] in _COMPOUND and i + 2 < n else i + 2
+            out += words[i:j]
+            if j < n and norm[j] in ORDINALS:
+                out.append(words[j])
+        return out
+    # اسم الأب (نكرة) ثم اسم العائلة (معرّف)، بثلاث كلمات على الأكثر بعد الاسم الأول
+    while i < n and len(out) < 4 and norm[i] not in _STOP_NEXT:
+        out.append(words[i])
+        i += 1
+        if norm[i - 1].startswith("ال"):
+            break  # بعد اسم العائلة المعرّف ينتهي الاسم
+    return out
 ORG = r"(وزارة|وزاره|هيئة|هيئه|مؤسسة|مؤسسه|شركة|شركه|جامعة|جامعه|بلدية|بلديه|دائرة|دائره|مجلس|نقابة|نقابه|حزب|البنك|بنك|سلطة|سلطه|مديرية|مديريه|المؤسسة|الأمن العام|الامن العام|الحكومة|الحكومه|الديوان)"
 PLACE = r"(محافظة|محافظه|مدينة|مدينه|لواء|منطقة|منطقه|قرية|قريه|مطار|ميناء|معبر|شارع|طريق)"
 _STOP_NEXT = set(normalize_ar("في من على إلى عن مع أن إن قد اليوم أمس يوم الذي التي الذين وقال قال وأكد أكد أن بأن و إنه انه لن لا لم ليس ما كما بعد قبل خلال عند منذ حول بشأن").split())
@@ -311,8 +354,14 @@ def _defs(words: list[str], first_free: bool) -> list[str]:
     return out
 
 
+def entity_norm(name: str) -> str:
+    """مفتاح المطابقة: «عبد الله» و«عبدالله» اسم واحد."""
+    return re.sub(r"(?<![ء-ي])(عبد|ابو|ابي) (?=ال)", r"\1", normalize_ar(prep_text(name)))
+
+
 def extract_entities(text: str) -> list[dict]:
     """كيانات من القواعد. يكمّلها محرك ذكاء اصطناعي إن وُجد. «وزير الطاقة صالح الخرابشة» = منصب + شخص."""
+    text = prep_text(text)
     found: list[tuple[str, str]] = []
     for m in re.finditer(ROLE + rf"\s+((?:{_W}\s?){{1,6}})", text):
         words = m.group(2).split()
@@ -331,14 +380,11 @@ def extract_entities(text: str) -> list[dict]:
             name.append(w)
         if len(name) >= 2:
             found.append(("person", " ".join(name)))
-    for m in re.finditer(TITLE + rf"\s+((?:{_W}\s?){{1,3}})", text):
-        name = []
-        for w in m.group(2).split():
-            if normalize_ar(w) in _STOP_NEXT or len(name) >= 3:
-                break
-            name.append(w)
+    for m in re.finditer(TITLE + rf"\s+((?:{_W}\s?){{1,6}})", text):
+        royal = m.group(1) in ROYAL
+        name = _person(m.group(2).split(), royal=royal)
         if name:
-            found.append(("person", f"{m.group(1)} {' '.join(name)}" if len(name) < 2 or m.group(1) in ("الملك", "الأمير", "الامير") else " ".join(name)))
+            found.append(("person", f"{m.group(1)} {' '.join(name)}" if len(name) < 2 or royal else " ".join(name)))
     # بحث متداخل (lookahead): «وزارة الأشغال العامة عقدا مع شركة الأفق» فيها جهتان، والأولى لا «تأكل» الثانية
     for m in re.finditer(rf"(?<![ء-ي])(?={ORG}(?:\s+((?:{_W}\s?){{1,5}}))?)", text):
         trig = m.group(1)
@@ -351,7 +397,7 @@ def extract_entities(text: str) -> list[dict]:
             found.append(("place", f"{m.group(1)} {' '.join(rest)}"))
     out, seen = [], set()
     for kind, name in found:
-        key = (normalize_ar(name), kind)
+        key = (entity_norm(name), kind)
         if key not in seen and len(key[0]) > 4:
             seen.add(key)
             out.append({"name": name.strip(), "kind": kind, "norm": key[0]})
@@ -374,11 +420,11 @@ def tone(text: str) -> float:
 
 
 def _entity(db: Session, name: str, kind: str) -> Entity:
-    norm = normalize_ar(name)
+    norm = entity_norm(name)
     e = db.scalar(select(Entity).where(Entity.norm == norm, Entity.kind == kind))
     if e is None:
         alias = db.scalars(select(Entity).where(Entity.kind == kind))
-        e = next((x for x in alias if norm in [normalize_ar(a) for a in (x.aliases or [])]), None)
+        e = next((x for x in alias if norm in [entity_norm(a) for a in (x.aliases or [])]), None)
     if e is None:
         e = Entity(name=name, norm=norm, kind=kind, aliases=[])
         db.add(e)
@@ -388,11 +434,11 @@ def _entity(db: Session, name: str, kind: str) -> Entity:
 
 def process_entities(db: Session, item: Item) -> list[Entity]:
     """الكيانات والإشارات والنبرة والتصريحات لمادة واحدة."""
-    text = f"{item.title}. {item.text[:8000]}"
+    text = prep_text(f"{item.title}. {item.text[:8000]}")
     ents = []
     for x in extract_entities(text):
         e = _entity(db, x["name"], x["kind"])
-        sents = [s for s in re.split(r"[.!؟\n]", text) if x["norm"] in normalize_ar(s)]
+        sents = [s for s in re.split(r"[.!؟\n]", text) if x["norm"] in entity_norm(s)]
         m = db.scalar(select(EntityMention).where(EntityMention.entity_id == e.id, EntityMention.item_id == item.id))
         if m is None:
             db.add(EntityMention(entity_id=e.id, item_id=item.id, tone=tone(" ".join(sents)), count=max(1, len(sents))))
@@ -402,7 +448,7 @@ def process_entities(db: Session, item: Item) -> list[Entity]:
         span = m.group(1)
         cut = re.search(r"\s(?:إن|ان|أن|بأن)\s", span[:120])
         head, q = (span[:cut.start()], span[cut.end():]) if cut else ("", span)
-        around = normalize_ar(text[max(0, m.start() - 120):m.start()] + " " + head)
+        around = entity_norm(text[max(0, m.start() - 120):m.start()] + " " + head)
         cands = [e for e in ents if e.kind in ("person", "org") and e.norm in around]
         if not cands:
             continue
@@ -415,6 +461,55 @@ def process_entities(db: Session, item: Item) -> list[Entity]:
                              is_promise=bool(PROMISE.search(q))))
     db.flush()
     return ents
+
+
+ENTITIES_REV = 2  # يرتفع كلما تحسّن الاستخراج، فتُعاد معالجة المواد المحفوظة مرة واحدة
+
+
+def reprocess_entities(db: Session, batch: int = 200) -> dict:
+    """يعيد استخراج الكيانات من كل المواد بعد تحسين القواعد («الملك عبد» ← «الملك عبدالله الثاني»).
+    يحفظ ما أضافه الصحفي: كيان له أسماء بديلة أو وعود متابعة لا يُحذف، والتصريح المرتبط بوعد يبقى."""
+    from marsad.models.tools import Promise
+
+    kept_stmts = set(db.scalars(select(Promise.statement_id).where(Promise.statement_id.is_not(None))))
+    done, last = 0, 0
+    while True:
+        items = list(db.scalars(select(Item).where(Item.id > last).order_by(Item.id).limit(batch)))
+        if not items:
+            break
+        for it in items:
+            last = it.id
+            with db.begin_nested():
+                for m in db.scalars(select(EntityMention).where(EntityMention.item_id == it.id)):
+                    db.delete(m)
+                for st in db.scalars(select(Statement).where(Statement.item_id == it.id)):
+                    if st.id not in kept_stmts:
+                        db.delete(st)
+                db.flush()
+                process_entities(db, it)
+            done += 1
+        db.commit()
+    # الكيانات التي لم تعد تُستخرج من أي مادة، ولا أثر لعمل الصحفي عليها
+    used = select(EntityMention.entity_id).union(select(Statement.entity_id), select(Promise.entity_id))
+    removed = 0
+    for e in db.scalars(select(Entity).where(Entity.id.not_in(used))):
+        if not e.aliases:
+            db.delete(e)
+            removed += 1
+    db.commit()
+    return {"items": done, "removed": removed}
+
+
+def reprocess_if_needed(db: Session) -> dict | None:
+    from marsad.rbac.service import get_setting, set_setting
+
+    if int(get_setting(db, "entities_rev", 1) or 1) >= ENTITIES_REV:
+        return None
+    out = reprocess_entities(db)
+    set_setting(db, "entities_rev", ENTITIES_REV)
+    db.commit()
+    log.info("أعيدت معالجة الكيانات: %s", out)
+    return out
 
 
 def contradictions(db: Session, entity: Entity) -> list[dict]:
