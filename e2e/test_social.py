@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -35,7 +36,8 @@ def main() -> int:
         row.get_by_role("button", name="حفظ").click()
         expect(row.get_by_role("status")).to_contain_text("حُفظ")
         expect(row).to_contain_text("الواجهة الرسمية")
-        expect(row).to_contain_text("…9876")  # المفتاح مقنّعًا، بعد أن تعيد الصفحة تحميل الحالة
+        # المفتاح يظهر مقنّعًا في خانته بعد أن تعيد الصفحة تحميل الحالة
+        expect(row.get_by_label("Bearer token X (تويتر)")).to_have_attribute("placeholder", re.compile("…9876"))
         assert "AAAA-test-bearer-token-9876" not in page.content()
         page.screenshot(path=SHOTS / "70-social-providers.png", full_page=True)
         row.get_by_label("مزوّد X (تويتر)").select_option("")
