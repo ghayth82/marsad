@@ -154,3 +154,32 @@ def test_entity_alias_merge(admin, feed):
     admin.put(f"/api/entities/{drop['id']}", json={"merge_into": keep["id"]})
     merged = admin.get(f"/api/entities/{keep['id']}").json()
     assert drop["name"] in merged["aliases"] and merged["mentions"] >= 2
+
+
+def test_detach_undo_merge_undo_and_move(admin, feed):
+    (t1, x1), (t2, x2) = GOLD["same"][:2]
+    a = feed("موقعأ", t1, x1, published=T0)
+    b = feed("موقعب", t2, x2, published=T0 + timedelta(minutes=10))
+    sid = admin.get(f"/api/items/{a}").json()["story_id"]
+    # فصل ثم تراجع: تعود المادة إلى قصتها
+    r = admin.put(f"/api/items/{b}/story", json={"story_id": None}).json()
+    assert r["from_story_id"] == sid and r["story_id"] != sid
+    solo = r["story_id"]
+    admin.put(f"/api/items/{b}/story", json={"story_id": r["from_story_id"]})
+    assert admin.get(f"/api/items/{b}").json()["story_id"] == sid
+    assert solo not in {s["id"] for s in admin.get("/api/stories").json()}  # القصة الفارغة لا تظهر
+    # قصة أخرى تُختار بالبحث في عنوانها (دون همزات) ثم تُدمج ثم يُتراجع عن الدمج
+    t3, x3 = GOLD["other"][0]
+    c = feed("موقعج", t3, x3, published=T0)
+    other = admin.get(f"/api/items/{c}").json()["story_id"]
+    word = t3.split()[0].replace("أ", "ا").replace("إ", "ا")
+    found = admin.get("/api/stories", params={"q": word, "exclude": sid}).json()
+    assert other in {s["id"] for s in found} and sid not in {s["id"] for s in found}
+    m = admin.post(f"/api/stories/{sid}/merge", json={"other_id": other}).json()
+    assert m["moved"] == [c] and m["from_story_id"] == other
+    assert admin.get(f"/api/items/{c}").json()["story_id"] == sid
+    admin.post("/api/stories/move-items", json={"item_ids": m["moved"], "story_id": m["from_story_id"]})
+    assert admin.get(f"/api/items/{c}").json()["story_id"] == other
+    assert admin.post(f"/api/stories/{sid}/merge", json={"other_id": sid}).status_code == 422
+    acts = [x["action"] for x in admin.get("/api/admin/audit", params={"limit": 20}).json()]
+    assert acts.count("story.move_item") >= 3 and "story.merge" in acts

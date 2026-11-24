@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { fmtPublished } from "../../lib/time";
+import { useReader } from "../../components/Reader";
 import { api } from "../../api";
 import { useCan } from "../../session";
 
@@ -51,14 +52,24 @@ function StoryPage() {
   const nav = useNavigate();
   const [v, setV] = useState<View | null>(null);
   const [msg, setMsg] = useState("");
+  const [undo, setUndo] = useState<(() => Promise<unknown>) | null>(null);
+  const [picker, setPicker] = useState<{ mode: "merge" } | { mode: "move"; itemId: number } | null>(null);
+  const reader = useReader();
   const load = () => api<View>(`/api/stories/${id}`).then(setV);
+  const done = (text: string, back: (() => Promise<unknown>) | null) => { setMsg(text); setUndo(() => back); setPicker(null); load(); };
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!v) return null;
   const rel = Object.fromEntries(v.relations.map((r) => [r.item_id, r]));
-  const detach = async (itemId: number) => {
-    const r = await api<{ story_id: number }>(`/api/items/${itemId}/story`, { method: "PUT", body: { story_id: null } });
-    setMsg(`فُصلت المادة إلى قصة مستقلة (#${r.story_id}). سُجّل التعديل.`);
-    load();
+  const moveItem = async (itemId: number, to: number | null, label: string) => {
+    const r = await api<{ story_id: number; from_story_id: number | null }>(`/api/items/${itemId}/story`, { method: "PUT", body: { story_id: to } });
+    done(to === null ? `فُصلت المادة إلى قصة مستقلة. سُجّل التعديل.` : `نُقلت المادة إلى «${label}». سُجّل التعديل.`,
+      r.from_story_id ? () => api(`/api/items/${itemId}/story`, { method: "PUT", body: { story_id: r.from_story_id } }) : null);
+  };
+  const merge = async (other: S) => {
+    if (!confirm(`ستنتقل مواد القصة «${other.title}» (${other.item_count} مادة) إلى هذه القصة «${v.story.title}»، وتبقيان قصة واحدة.\nيمكنك التراجع بعدها مباشرة. متابعة؟`)) return;
+    const r = await api<{ moved: number[]; from_story_id: number }>(`/api/stories/${id}/merge`, { method: "POST", body: { other_id: other.id } });
+    done(`دُمجت «${other.title}» في هذه القصة (${r.moved.length} مادة). سُجّل التعديل.`,
+      () => api("/api/stories/move-items", { method: "POST", body: { item_ids: r.moved, story_id: r.from_story_id } }));
   };
   return (
     <div className="cols">
@@ -73,21 +84,41 @@ function StoryPage() {
               <br /><span className="mu">رُصدت {fmt(v.first.captured_at)}{v.first.published_at ? ` · المعلن ${fmtPublished(v.first.published_at, v.first.published_date_only)}` : ""}{v.first.archive_sha256 && ` · بصمة النسخة المؤرشفة ${v.first.archive_sha256.slice(0, 12)}…`}</span>
             </div>
           )}
-          {msg && <div className="msg ok" role="status">{msg}</div>}
+          {msg && (
+            <div className="msg ok" role="status" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ flex: 1 }}>{msg}</span>
+              {undo && <button className="btn sm" onClick={async () => { await undo(); setUndo(null); setMsg("تُراجع عن آخر تعديل. سُجّل في سجل التدقيق."); load(); }}>تراجع</button>}
+            </div>
+          )}
+          {can("claims.create") && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button className="btn sm" onClick={() => setPicker(picker?.mode === "merge" ? null : { mode: "merge" })} aria-expanded={picker?.mode === "merge"}>ادمج معها قصة أخرى</button>
+            </div>
+          )}
+          {picker?.mode === "merge" && <StoryPicker exclude={Number(id)} hint="ابحث عن القصة التي تتحدث عن الحدث نفسه، فتنتقل موادها إلى هذه القصة." onPick={merge} onCancel={() => setPicker(null)} />}
         </section>
         <section className="card">
           <h2>الخط الزمني: من نشر أولًا ومن نقل عن من</h2>
           {v.timeline.map((t, k) => (
-            <div key={t.item_id} className="row">
+            <Fragment key={t.item_id}>
+            <div className={`row${reader.id === t.item_id ? " on" : ""}`}>
               <span className="pill p-n">{k + 1}</span>
               <span className="f"><b>{t.outlet}</b> · {fmt(t.time)} <span className="mu">({t.basis})</span><br />
-                <a href={t.url} target="_blank" rel="noreferrer noopener">{t.title}</a>
+                <button className="linkish" onClick={() => reader.open(t.item_id)} title="اقرأ المادة في لوحة جانبية">{t.title}</button>
+                {" "}<a href={t.url} target="_blank" rel="noreferrer noopener" className="mu" title="افتح الخبر في موقعه">↗</a>
                 {rel[t.item_id]?.adds.length ? <><br /><span className="mu">أضاف: {rel[t.item_id].adds[0].slice(0, 140)}…</span></> : null}</span>
               {k === 0 ? <span className="pill p-ok">الأول</span> : rel[t.item_id] &&
                 <span className={`pill ${REL[rel[t.item_id].kind] ?? "p-n"}`}>{rel[t.item_id].kind}{rel[t.item_id].from_outlet ? ` عن ${rel[t.item_id].from_outlet}` : ""}</span>}
               {t.status === "deleted" && <span className="pill p-bad">حُذفت</span>}
-              {can("claims.create") && <button className="btn sm" onClick={() => detach(t.item_id)} title="ليست عن الحدث نفسه">فصل</button>}
+              {can("claims.create") && <>
+                <button className="btn sm" onClick={() => setPicker(picker?.mode === "move" && picker.itemId === t.item_id ? null : { mode: "move", itemId: t.item_id })} title="المادة عن حدث في قصة أخرى">انقل إلى قصة…</button>
+                <button className="btn sm" onClick={() => moveItem(t.item_id, null, "")} title="ليست عن الحدث نفسه ولا عن قصة موجودة">فصل</button>
+              </>}
             </div>
+            {picker?.mode === "move" && picker.itemId === t.item_id && (
+              <StoryPicker exclude={Number(id)} hint="اختر القصة التي تنتمي إليها هذه المادة." onPick={(st) => moveItem(t.item_id, st.id, st.title)} onCancel={() => setPicker(null)} />
+            )}
+            </Fragment>
           ))}
         </section>
       </div>
@@ -111,6 +142,36 @@ function StoryPage() {
           <button className="btn sm" onClick={() => nav("/entities")}>كل الكيانات</button>
         </section>
       </div>
+    </div>
+  );
+}
+
+/** اختيار قصة بالبحث في عنوانها (للدمج أو النقل). */
+function StoryPicker({ exclude, hint, onPick, onCancel }: { exclude: number; hint: string; onPick: (s: S) => void; onCancel: () => void }) {
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState<S[]>([]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const p = new URLSearchParams({ exclude: String(exclude), limit: "15" });
+      if (q.trim()) p.set("q", q.trim());
+      api<S[]>(`/api/stories?${p}`).then(setRows).catch(() => setRows([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q, exclude]);
+  return (
+    <div className="card" style={{ background: "var(--sf2)", gap: 8 }}>
+      <span className="mu">{hint}</span>
+      <div style={{ display: "flex", gap: 6 }}>
+        <input className="inp" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بكلمة من عنوان القصة" aria-label="بحث عن قصة" />
+        <button className="btn sm" onClick={onCancel}>إلغاء</button>
+      </div>
+      {!rows.length && <span className="mu">لا قصص مطابقة.</span>}
+      {rows.map((r) => (
+        <div key={r.id} className="row clickable" role="button" tabIndex={0} onClick={() => onPick(r)} onKeyDown={(e) => e.key === "Enter" && onPick(r)}>
+          <span className="f">{r.title}<br /><span className="mu">{r.item_count} مادة · {r.source_count} مصدر · آخر تحديث {fmt(r.updated_at)}</span></span>
+          <span className="btn sm">اختر</span>
+        </div>
+      ))}
     </div>
   );
 }

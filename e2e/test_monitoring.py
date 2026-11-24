@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -83,12 +84,28 @@ def main() -> int:
         page.get_by_role("button", name="بحث", exact=True).click()
         expect(page.get_by_text("3 مادة")).to_be_visible()
         page.get_by_text("خبر رقم 2 عن أسعار الأدوية").click()
-        expect(page.get_by_text("المؤسسة العامة للغذاء والدواء").first).to_be_visible()
-        expect(page.get_by_role("link", name="النسخة المؤرشفة")).to_be_visible()
+        reader = page.get_by_role("complementary", name="قارئ المادة")
+        expect(reader.get_by_text("المؤسسة العامة للغذاء والدواء").first).to_be_visible()
+        expect(reader.get_by_role("heading", name="تعديلات الخبر")).to_be_visible()
+        expect(reader.get_by_role("link", name="النسخة المحفوظة")).to_be_visible()
         page.screenshot(path=SHOTS / "21-live.png", full_page=True)
+        reader.get_by_role("button", name="ملء الشاشة").click()
+        expect(reader.get_by_role("button", name="تصغير")).to_be_visible()
+        page.keyboard.press("Escape")  # يغلق القارئ ويعود للقائمة بالبحث نفسه
+        expect(reader).to_have_count(0)
+        expect(page.get_by_text("3 مادة")).to_be_visible()
+        page.get_by_text("خبر رقم 2 عن أسعار الأدوية").click()
+        page.get_by_role("complementary", name="قارئ المادة").get_by_role("button", name="صفحة مستقلة").click()
+        expect(page).to_have_url(re.compile(r"/item/\d+$"))
+        expect(page.get_by_role("heading", name="تعديلات الخبر")).to_be_visible()
+        page.get_by_role("button", name="رجوع").click()  # سهم الرجوع يعيد القائمة والقارئ كما كانا
+        expect(page.get_by_role("complementary", name="قارئ المادة")).to_be_visible()
 
         # البند 4: المواد الثلاث عن الحدث نفسه في قصة واحدة، بأول ناشر
         page.goto(f"{BASE}/stories")
+        # المرشّح الافتراضي «أكثر من مصدر» يعدّ الجهات: قصة جهة واحدة لا تظهر فيه
+        expect(page.get_by_text("لا قصة نشرتها جهتان أو أكثر بعد")).to_be_visible()
+        page.get_by_label("التي نشرها أكثر من مصدر فقط").uncheck()
         expect(page.get_by_text("3 مادة · 1 مصدر")).to_be_visible()
         page.locator("a[href^=\x27/stories/\x27]").first.click()
         expect(page.get_by_text("أول ناشر: صحيفة المتصفح")).to_be_visible()

@@ -10,6 +10,7 @@ import "@fontsource/ibm-plex-sans-arabic/700.css";
 import "./theme.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ItemPage } from "./components/Reader";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Shell } from "./components/Shell";
 import { SECTIONS, visibleSections } from "./nav";
@@ -67,6 +68,7 @@ function Routed() {
         <Route path="stats" element={allowed.has("/stats") ? <Stats /> : <Navigate to="/" replace />} />
         <Route path="training/:id?" element={allowed.has("/training") ? <Training /> : <Navigate to="/" replace />} />
         <Route path="help" element={<Help />} />
+        <Route path="item/:id" element={allowed.has("/live") || allowed.has("/stories") || allowed.has("/entities") ? <ItemPage /> : <Navigate to="/" replace />} />
         <Route path="ratings/*" element={allowed.has("/ratings") ? <Ratings /> : <Navigate to="/" replace />} />
         <Route path="claims/*" element={allowed.has("/claims") || allowed.has("/rumors") ? <Claims /> : <Navigate to="/" replace />} />
         {SECTIONS.filter((s) => !BUILT.has(s.path)).map((s) => (

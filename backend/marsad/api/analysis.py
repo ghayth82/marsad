@@ -28,9 +28,20 @@ def _404():
 
 
 @router.get("/stories")
-def stories(limit: int = 40, min_items: int = 1, min_sources: int = 1, _: User = Depends(view), db: Session = Depends(get_db)):
-    rows = db.scalars(select(Story).where(Story.item_count >= min_items, Story.source_count >= min_sources)
-                      .order_by(Story.updated_at.desc()).limit(min(limit, 200)))
+def stories(limit: int = 40, min_items: int = 1, min_sources: int = 1, q: str = "", exclude: int | None = None,
+            _: User = Depends(view), db: Session = Depends(get_db)):
+    """قائمة القصص؛ q للبحث بالعنوان (لاختيار قصة للدمج أو النقل)، بكل أشكال الكلمة."""
+    stmt = select(Story).where(Story.item_count >= min_items, Story.source_count >= min_sources)
+    if exclude:
+        stmt = stmt.where(Story.id != exclude)
+    stmt = stmt.order_by(Story.updated_at.desc())
+    if q.strip():
+        from marsad.text import normalize_ar
+
+        nq = normalize_ar(q)
+        rows = [s for s in db.scalars(stmt.limit(2000)) if nq in normalize_ar(s.title)][:min(limit, 200)]
+    else:
+        rows = db.scalars(stmt.limit(min(limit, 200)))
     return [{"id": s.id, "title": s.title, "item_count": s.item_count, "source_count": s.source_count,
              "updated_at": s.updated_at.isoformat(), "created_at": s.created_at.isoformat()} for s in rows]
 
@@ -53,7 +64,7 @@ def move(iid: int, body: MoveIn, actor: User = Depends(edit), db: Session = Depe
     target = core.move_item(db, it, body.story_id)
     record(db, actor, "story.move_item", "item", str(iid), {"story_id": old}, {"story_id": target.id})
     db.commit()
-    return {"story_id": target.id}
+    return {"story_id": target.id, "from_story_id": old}  # from_story_id: للتراجع
 
 
 class MergeIn(BaseModel):
@@ -63,10 +74,31 @@ class MergeIn(BaseModel):
 @router.post("/stories/{sid}/merge")
 def merge(sid: int, body: MergeIn, actor: User = Depends(edit), db: Session = Depends(get_db)):
     keep, other = db.get(Story, sid) or _404(), db.get(Story, body.other_id) or _404()
+    if keep.id == other.id:
+        raise HTTPException(422, "لا تُدمج القصة مع نفسها")
+    moved = [i.id for i in db.scalars(select(Item).where(Item.story_id == other.id))]
     core.merge_stories(db, keep, other)
-    record(db, actor, "story.merge", "story", str(sid), None, {"merged": body.other_id})
+    record(db, actor, "story.merge", "story", str(sid), None, {"merged": body.other_id, "items": moved})
     db.commit()
-    return core.story_view(db, keep)
+    return {**core.story_view(db, keep), "moved": moved, "from_story_id": other.id}
+
+
+class MoveManyIn(BaseModel):
+    item_ids: list[int]
+    story_id: int
+
+
+@router.post("/stories/move-items")
+def move_items(body: MoveManyIn, actor: User = Depends(edit), db: Session = Depends(get_db)):
+    """نقل عدة مواد إلى قصة (للتراجع عن دمج: تعود المواد إلى قصتها الأولى)."""
+    db.get(Story, body.story_id) or _404()
+    for iid in body.item_ids:
+        it = db.get(Item, iid) or _404()
+        old = it.story_id
+        core.move_item(db, it, body.story_id)
+        record(db, actor, "story.move_item", "item", str(iid), {"story_id": old}, {"story_id": body.story_id})
+    db.commit()
+    return {"story_id": body.story_id, "moved": body.item_ids}
 
 
 @router.get("/entities")
@@ -99,7 +131,7 @@ def entity(eid: int, _: User = Depends(view), db: Session = Depends(get_db)):
             "promises": sum(s.is_promise for s, _ in sts),
             "contradictions": core.contradictions(db, e),
             "recent_items": [{"id": i.id, "title": i.title, "outlet": o.name, "captured_at": i.captured_at.isoformat()}
-                             for _, i, o in sorted(ms, key=lambda x: x[1].captured_at, reverse=True)[:20]]}
+                             for _, i, o in sorted(ms, key=lambda x: x[1].captured_at, reverse=True)[:50]]}
 
 
 class EntityEdit(BaseModel):

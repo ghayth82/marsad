@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Route, Routes, useParams } from "react-router-dom";
+import { useReader } from "../../components/Reader";
 import { api } from "../../api";
 import { useCan } from "../../session";
 
@@ -45,6 +46,9 @@ function List() {
   );
 }
 
+const toneWord = (x: number) => (x > 0.5 ? "إيجابية واضحة" : x > 0.2 ? "إيجابية غالبًا" : x < -0.5 ? "سلبية واضحة" : x < -0.2 ? "سلبية غالبًا" : "محايدة أو مختلطة");
+const toneCls = (x: number) => (x > 0.2 ? "p-ok" : x < -0.2 ? "p-bad" : "p-n");
+
 function EntityPage() {
   const { id } = useParams();
   const [e, setE] = useState<Full | null>(null);
@@ -52,6 +56,7 @@ function EntityPage() {
   const [tracked, setTracked] = useState<{ id: number; text: string; status_ar: string; due_at: string | null; overdue: boolean; statement_id: number | null }[]>([]);
   const [track, setTrack] = useState<{ sid: number; due: string } | null>(null);
   const can = useCan();
+  const reader = useReader();
   const load = () => {
     api<Full>(`/api/entities/${id}`).then(setE);
     api<{ promises: typeof tracked }>(`/api/promises?entity_id=${id}`).then((r) => setTracked(r.promises)).catch(() => setTracked([]));
@@ -66,6 +71,17 @@ function EntityPage() {
           <div className="tabs"><span className="pill p-n">{e.mentions} مادة</span><span className="pill p-n">{e.statements.length} تصريح</span>
             {e.promises > 0 && <span className="pill p-ac">{e.promises} وعد</span>}{e.contradictions.length > 0 && <span className="pill p-bad">{e.contradictions.length} تناقض محتمل</span>}</div>
           {!!e.aliases.length && <span className="mu">يُكتب أيضًا: {e.aliases.join("، ")}</span>}
+        </section>
+        <section className="card">
+          <h2>المواد التي ذُكر فيها <span className="mu">({e.mentions})</span></h2>
+          <span className="mu">اضغط المادة لتقرأها في لوحة جانبية، ومنها تفتحها في صفحة أو نافذة مستقلة.</span>
+          {!e.recent_items.length && <span className="mu">لا مواد بعد.</span>}
+          {e.recent_items.map((i) => (
+            <div key={i.id} className={`row clickable${reader.id === i.id ? " on" : ""}`} role="button" tabIndex={0}
+              onClick={() => reader.open(i.id)} onKeyDown={(k) => k.key === "Enter" && reader.open(i.id)}>
+              <span className="f"><b>{i.title}</b><br /><span className="mu">{i.outlet} · {day(i.captured_at)}</span></span>
+            </div>
+          ))}
         </section>
         {e.contradictions.map((c, k) => (
           <section key={k} className="card" style={{ borderColor: "var(--bad)" }}>
@@ -98,10 +114,10 @@ function EntityPage() {
         </section>
         <section className="card">
           <h2>نبرة التغطية حسب الموقع</h2>
-          <span className="mu">مؤشر لغوي من −1 (سلبية) إلى +1 (إيجابية)، للاستئناس.</span>
+          <span className="mu">كيف تتحدث كل جهة عن هذا الكيان، بحسب الكلمات الإيجابية والسلبية حول اسمه. مؤشر آلي للاستئناس لا حكم.</span>
           {e.tone_by_outlet.map((t) => (
-            <div key={t.outlet} className="row"><span className="f">{t.outlet} <span className="mu">({t.mentions})</span></span>
-              <span className={`pill ${t.tone > 0.2 ? "p-ok" : t.tone < -0.2 ? "p-bad" : "p-n"}`}>{t.tone > 0 ? "+" : ""}{t.tone}</span></div>
+            <div key={t.outlet} className="row"><span className="f">{t.outlet}<br /><span className="mu">مبنية على {t.mentions} {t.mentions === 1 ? "مادة" : "مواد"}{t.mentions < 3 ? " — عدد قليل لا يكفي للحكم" : ""}</span></span>
+              <span className={`pill ${toneCls(t.tone)}`} title={`المؤشر ${t.tone > 0 ? "+" : ""}${t.tone} من −1 إلى +1`}>{toneWord(t.tone)}</span></div>
           ))}
         </section>
         <section className="card">
@@ -110,10 +126,6 @@ function EntityPage() {
             <input className="inp" value={alias} onChange={(x) => setAlias(x.target.value)} placeholder="كتابة أخرى للاسم" aria-label="اسم بديل" />
             <button className="btn" disabled={!alias.trim()}>إضافة</button>
           </form>
-        </section>
-        <section className="card">
-          <h2>آخر المواد</h2>
-          {e.recent_items.map((i) => <div key={i.id} className="row"><span className="f">{i.title}<br /><span className="mu">{i.outlet} · {day(i.captured_at)}</span></span></div>)}
         </section>
       </div>
     </div>
