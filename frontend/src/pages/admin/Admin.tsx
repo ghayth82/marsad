@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { ApiAccess } from "./ApiAccess";
 import { api } from "../../api";
 import { useCan } from "../../session";
 import { Roles } from "./Roles";
@@ -13,6 +14,7 @@ export function Admin() {
     { to: "roles", label: "الأدوار", ok: can("users.manage") },
     { to: "settings", label: "التخزين والإعدادات", ok: can("system.manage") || can("users.manage") },
     { to: "audit", label: "سجل التدقيق", ok: can("audit.view") },
+    { to: "api", label: "الواجهة البرمجية", ok: can("api.manage") },
   ].filter((t) => t.ok);
   if (!tabs.length) return <div className="msg err">لا تملك صلاحية لهذه الصفحة. اطلبها من المدير.</div>;
   return (
@@ -26,6 +28,7 @@ export function Admin() {
         {can("users.manage") && <Route path="roles" element={<Roles />} />}
         <Route path="settings" element={<Settings />} />
         {can("audit.view") && <Route path="audit" element={<Audit />} />}
+        {can("api.manage") && <Route path="api" element={<ApiAccess />} />}
       </Routes>
     </>
   );

@@ -16,7 +16,7 @@ INSECURE = os.environ.get("MARSAD_E2E_INSECURE") == "1"
 H = {"X-Marsad": "1"}
 ADMIN = {"email": "ghayth@example.com", "password": "correct-horse-1", "full_name": "غيث"}
 ROUTES = ["/", "/sources", "/live", "/stories", "/rumors", "/media-lab", "/audio-lab", "/entities", "/cases", "/story-builder",
-          "/ratings", "/ratings/methodology", "/ratings/review", "/engines", "/reports", "/stats", "/tools/tips", "/tools/figures", "/tools/promises", "/tools/transcripts", "/tools/archive", "/training", "/admin", "/admin/settings",
+          "/ratings", "/ratings/methodology", "/ratings/review", "/engines", "/reports", "/stats", "/tools/tips", "/tools/figures", "/tools/promises", "/tools/transcripts", "/tools/archive", "/tools/workflow", "/tools/corrections", "/admin/api", "/training", "/admin", "/admin/settings",
           "/admin/roles", "/help", "/me"]
 MIXED = "أعلنت شركة Apple عن iPhone 17 بسعر 999 دولار (1,299 USD مع الضريبة) في 2026-11-24"
 

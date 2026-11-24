@@ -9,7 +9,7 @@ type Radar = { term: string; count: number; expected: number; score: number; sam
 type Alert = { id: number; text: string; created_at: string; read: boolean };
 
 export const STATUS: Record<string, [string, string]> = {
-  new: ["p-warn", "جديد"], investigating: ["p-ac", "قيد التحقق"], proposed: ["p-warn", "حكم مقترح"], verdict: ["p-ok", "حكم معتمد"], archived: ["p-n", "مؤرشف"] };
+  new: ["p-warn", "جديد"], assigned: ["p-n", "مُسند"], investigating: ["p-ac", "قيد التحقق"], proposed: ["p-warn", "حكم مقترح"], verdict: ["p-ok", "حكم معتمد"], dismissed: ["p-n", "مرفوض"], archived: ["p-n", "مؤرشف"] };
 export const labelPill = (l?: string) => (l === "صحيح" ? "p-ok" : l === "مضلل" || l === "مفبرك" ? "p-bad" : l ? "p-warn" : "p-n");
 
 export function Rumors() {

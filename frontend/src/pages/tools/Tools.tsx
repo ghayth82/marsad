@@ -8,18 +8,23 @@ const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("ar", { 
 
 export function Tools() {
   const can = useCan();
+  const work = can("claims.create") || can("verdicts.propose") || can("verdicts.approve");
   const tabs = [
+    { to: "workflow", ar: "سير العمل", ok: work },
     { to: "tips", ar: "البلاغات", ok: can("claims.create") },
     { to: "figures", ar: "الأرقام الرسمية", ok: can("monitor.view") || can("claims.create") },
     { to: "promises", ar: "الوعود", ok: can("monitor.view") || can("claims.create") },
     { to: "transcripts", ar: "تفريغ التسجيلات", ok: can("labs.use") },
     { to: "archive", ar: "الأرشفة الفورية", ok: can("monitor.view") || can("claims.create") || can("cases.create") },
+    { to: "corrections", ar: "سجل التصحيحات", ok: work },
   ].filter((t) => t.ok);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <nav className="tabs" aria-label="الأدوات">{tabs.map((t) => <NavLink key={t.to} to={`/tools/${t.to}`} className={({ isActive }) => (isActive ? "on" : "")}>{t.ar}</NavLink>)}</nav>
       <Routes>
         <Route index element={tabs[0] ? <Navigate to={tabs[0].to} replace /> : null} />
+        <Route path="workflow" element={<Board />} />
+        <Route path="corrections" element={<Corrections />} />
         <Route path="tips" element={<Tips />} />
         <Route path="figures" element={<Figures />} />
         <Route path="promises" element={<Promises />} />
@@ -330,6 +335,89 @@ function Archive() {
         </form>
         <Msg m={m} />
         <span className="mu">تُحفظ الصفحة كما وصلت ونصها وبصمتها، ولقطة كاملة إن توفّر متصفح على الجهاز. الروابط في مسودات القصص تُؤرشف تلقائيًا داخل قضيتها.</span>
+      </section>
+    </div>
+  );
+}
+
+// ---------- سير العمل (البند 14) ----------
+
+type WClaim = { id: number; text: string; state_ar: string; priority: string; priority_ar: string; assignee: string; due_at: string | null; overdue: boolean };
+
+function Board() {
+  const can = useCan();
+  const [d, setD] = useState<{ columns: { key: string; title: string; claims: WClaim[] }[]; sla: Record<string, number>; priorities: Record<string, string> } | null>(null);
+  const [sla, setSla] = useState<Record<string, number> | null>(null);
+  const [m, setM] = useState<{ k: string; t: string } | null>(null);
+  const load = () => api<NonNullable<typeof d>>("/api/workflow/board").then((r) => { setD(r); setSla(r.sla); });
+  useEffect(() => { load(); }, []);
+  if (!d || !sla) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+        {d.columns.map((col) => (
+          <section key={col.key} className="card" aria-label={col.title}>
+            <h2>{col.title} <span className="mu">({col.claims.length})</span></h2>
+            {!col.claims.length && <span className="mu">لا شيء.</span>}
+            {col.claims.map((c) => (
+              <Link key={c.id} to={`/claims/${c.id}`} className="card" style={{ padding: 10, gap: 4, textDecoration: "none", color: "var(--tx)", borderColor: c.overdue ? "var(--bad)" : undefined }}>
+                <span style={{ fontSize: 13 }}>{c.text}</span>
+                <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  <span className={`pill ${c.priority === "urgent" ? "p-bad" : c.priority === "high" ? "p-warn" : "p-n"}`}>{c.priority_ar}</span>
+                  {c.assignee && <span className="pill p-n">{c.assignee}</span>}
+                  {c.overdue && <span className="pill p-bad">تجاوز المهلة</span>}
+                </span>
+                {c.due_at && <span className="mu" style={{ fontSize: 11 }}>المهلة {fmt(c.due_at)}</span>}
+              </Link>
+            ))}
+          </section>
+        ))}
+      </div>
+      <section className="card">
+        <h2>المهل بالساعات</h2>
+        <span className="mu">تبدأ المهلة من الإسناد. يصل المُسند إليه تنبيه حين يبقى ربعها، ويصله مع المحرّرين تنبيه حين تُتجاوز.</span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+          {Object.entries(d.priorities).map(([k, ar]) => (
+            <label key={k} className="fld" style={{ width: 120 }}>{ar}<input className="inp" type="number" min={0.25} step={0.25} value={sla[k]} disabled={!can("system.manage")}
+              onChange={(e) => setSla({ ...sla, [k]: Number(e.target.value) })} /></label>
+          ))}
+          {can("system.manage") && <button className="btn sm" onClick={async () => { try { await api("/api/workflow/sla", { method: "PUT", body: sla }); setM({ k: "ok", t: "حُفظت المهل." }); } catch (x) { setM({ k: "err", t: (x as Error).message }); } }}>حفظ</button>}
+        </div>
+        <Msg m={m} />
+      </section>
+    </div>
+  );
+}
+
+// ---------- سجل التصحيحات ----------
+
+type Corr = { id: number; claim_id: number; claim: string; before: { label: string; grade: string }; after: { label: string; grade: string }; reason: string; at: string; public: boolean };
+
+function Corrections() {
+  const can = useCan();
+  const [d, setD] = useState<{ corrections: Corr[]; public: boolean } | null>(null);
+  const load = () => api<NonNullable<typeof d>>("/api/corrections").then(setD);
+  useEffect(() => { load(); }, []);
+  if (!d) return null;
+  return (
+    <div className="cols">
+      <section className="card grow">
+        <h2>سجل التصحيحات</h2>
+        <span className="mu">كل تعديل لحكم معتمد يُسجَّل هنا بما كان وما صار وسببه.</span>
+        {!d.corrections.length && <span className="mu">لا تصحيحات بعد.</span>}
+        {d.corrections.map((k) => (
+          <div key={k.id} className="row" style={{ alignItems: "flex-start" }}>
+            <span className="f"><Link to={`/claims/${k.claim_id}`}>{k.claim}</Link><br />
+              <span>كان: <b>{k.before.label}</b> ← صار: <b>{k.after.label}</b></span><br />
+              <span className="mu">السبب: {k.reason || "—"} · {fmt(k.at)}</span></span>
+            {can("verdicts.approve") && <label className="chk"><input type="checkbox" checked={k.public} onChange={async (e) => { await api(`/api/corrections/${k.id}`, { method: "PUT", body: { public: e.target.checked } }); load(); }} />في الصفحة العامة</label>}
+          </div>
+        ))}
+      </section>
+      <section className="card side">
+        <h2>الصفحة العامة</h2>
+        <span>{d.public ? "مفعّلة" : "مطفأة"}: تُفتح دون دخول على <a dir="ltr" href="/public/corrections" target="_blank" rel="noreferrer">/public/corrections</a>، وتعرض الأحكام المصحّحة فقط، دون أسماء الصحفيين ودون أي تقييم للمواقع.</span>
+        {can("system.manage") && <button className={`btn sm ${d.public ? "" : "pri"}`} onClick={async () => { await api("/api/corrections/public", { method: "PUT", body: { public: !d.public } }); load(); }}>{d.public ? "أطفئ الصفحة العامة" : "فعّل الصفحة العامة"}</button>}
       </section>
     </div>
   );

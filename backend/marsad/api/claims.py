@@ -51,7 +51,9 @@ def claim_row(c: Claim) -> dict:
     v = core.current_verdict(c)
     return {"id": c.id, "text": c.text, "status": c.status, "origin": c.origin, "speaker": c.speaker,
             "first_seen_at": c.first_seen_at.isoformat() if c.first_seen_at else None, "appearances": len(c.appearances),
-            "returns": sum(a.kind == "return" for a in c.appearances), "verdict": _v(v), "tags": c.tags}
+            "returns": sum(a.kind == "return" for a in c.appearances), "verdict": _v(v), "tags": c.tags,
+            "assignee_id": c.assignee_id, "priority": c.priority, "due_at": c.due_at.isoformat() if c.due_at else None,
+            "has_approved": core.current_verdict(c, approved_only=True) is not None}
 
 
 @router.get("/claims")
@@ -178,13 +180,15 @@ class VerdictIn(BaseModel):
     evidence_grade: str
     explanation: str
     engine_batch_id: int | None = None
+    correction_reason: str = ""
 
 
 @router.post("/claims/{cid}/verdict")
 def propose(cid: int, body: VerdictIn, user: User = Depends(create), db: Session = Depends(get_db)):
     c = db.get(Claim, cid) or _404()
     try:
-        core.propose_verdict(db, user, c, body.label, body.evidence_grade, body.explanation, body.engine_batch_id)
+        core.propose_verdict(db, user, c, body.label, body.evidence_grade, body.explanation, body.engine_batch_id,
+                            body.correction_reason)
     except (core.ClaimError, PermissionError_) as e:
         raise HTTPException(422, str(e)) from None
     db.commit()

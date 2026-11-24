@@ -190,6 +190,14 @@ def alerts_tick(timestamp: int) -> dict:
             db.commit()
         except Exception:  # noqa: BLE001 — تعذّر تيليغرام لا يوقف التنبيهات
             db.rollback()
+        from marsad.org import public_api, workflow
+
+        try:
+            workflow.sla_alerts(db)
+            public_api.deliver(db)
+            db.commit()
+        except Exception:  # noqa: BLE001 — تعذّر نظام خارجي لا يوقف التنبيهات
+            db.rollback()
         sent = alerts.dispatch(db)
         db.commit()
         return {"made": made, **sent}

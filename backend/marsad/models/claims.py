@@ -17,7 +17,7 @@ class Claim(Base):
     text: Mapped[str] = mapped_column(Text)
     norm: Mapped[str] = mapped_column(Text, default="")
     speaker: Mapped[str] = mapped_column(String(300), default="")
-    status: Mapped[str] = mapped_column(String(16), default="new")  # new | investigating | proposed | verdict | archived
+    status: Mapped[str] = mapped_column(String(16), default="new")  # new | assigned | investigating | proposed | verdict | dismissed | archived
     origin: Mapped[str] = mapped_column(String(12), default="manual")  # manual | auto | engine
     first_item_id: Mapped[int | None] = mapped_column(ForeignKey("items.id", ondelete="SET NULL"), nullable=True)
     first_seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
@@ -27,6 +27,11 @@ class Claim(Base):
     meta: Mapped[dict] = mapped_column(JSON, default=dict)  # البصمة ونتائج المحركات
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, index=True)
+    # سير العمل التحريري (البند 14)
+    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    assigned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    priority: Mapped[str] = mapped_column(String(10), default="normal")  # normal | high | urgent
+    due_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
 
     appearances: Mapped[list["ClaimItem"]] = relationship(lazy="selectin", cascade="all, delete-orphan")
     verdicts: Mapped[list["Verdict"]] = relationship(lazy="selectin", order_by="Verdict.id", cascade="all, delete-orphan")

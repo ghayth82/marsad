@@ -15,7 +15,7 @@ from marsad.models import RoleTemplate, User, UserPreference
 from marsad.rbac.service import active_roles
 
 DASHBOARD_CARDS = ["rising_stories", "new_rumors", "alerts", "sources_status", "daily_brief",
-                   "my_cases", "pending_approvals", "engine_costs", "training"]
+                   "my_cases", "pending_approvals", "engine_costs", "training", "my_tasks"]
 
 
 class AlertPrefs(BaseModel):
@@ -32,7 +32,7 @@ class Preferences(BaseModel):
     theme: Literal["light", "dark", "system"] = "system"
     language: Literal["ar", "en"] = "ar"
     font_scale: float = Field(1.0, ge=0.8, le=1.6)
-    dashboard: list[str] = Field(default_factory=lambda: ["rising_stories", "new_rumors", "alerts",
+    dashboard: list[str] = Field(default_factory=lambda: ["my_tasks", "rising_stories", "new_rumors", "alerts",
                                                           "sources_status", "daily_brief"])
     view_as_role: str | None = None  # «عرض الواجهة كـ» دور واحد لمن يحمل أكثر من دور
     follows: dict[str, list[str]] = Field(default_factory=lambda: {"sources": [], "topics": [], "entities": []})

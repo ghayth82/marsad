@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useSession } from "../session";
 
+type Task = { id: number; text: string; priority: string; priority_ar: string; overdue: boolean; due_at: string | null };
+
 export const DASHBOARD_CARDS: Record<string, string> = {
   rising_stories: "القصص الصاعدة",
   new_rumors: "شائعات جديدة",
   alerts: "التنبيهات",
   sources_status: "حالة المصادر",
   daily_brief: "موجز اليوم",
+  my_tasks: "مهامي",
   my_cases: "قضاياي",
   pending_approvals: "بانتظار اعتمادي",
   engine_costs: "كلفة المحركات",
@@ -22,6 +25,7 @@ type Dash = {
   sources_status?: { ok: number; error: number; new: number; paused: number; total: number; broken: { id: number; title: string; error: string }[] };
   daily_brief?: { id: number; created_at: string; text: string } | null;
   my_cases?: { id: number; title: string; link: string }[];
+  my_tasks?: { tasks: Task[]; review: Task[] };
   pending_approvals?: { kind: string; text: string; link: string }[];
   engine_costs?: { month_usd: number };
   training?: { total: number; done: number; next: { id: number; title: string; link: string } | null };
@@ -66,6 +70,14 @@ export function Dashboard() {
       case "daily_brief":
         return d.daily_brief ? <><p style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>{d.daily_brief.text}</p><Link to={`/reports/${d.daily_brief.id}`}>الموجز كاملًا</Link></>
           : <Empty t="يُنشأ الموجز الصباحي تلقائيًا في موعده." />;
+      case "my_tasks": {
+        const t = d.my_tasks;
+        if (!t || (!t.tasks.length && !t.review.length)) return <Empty t="لا مهام مسندة إليك." />;
+        return <>{t.tasks.map((x) => <div key={x.id} className="row"><Link className="f" to={`/claims/${x.id}`}>{x.text}</Link>
+          <span className={`pill ${x.overdue ? "p-bad" : x.priority === "urgent" ? "p-warn" : "p-n"}`}>{x.overdue ? "تجاوز المهلة" : x.priority_ar}</span></div>)}
+          {t.review.length > 0 && <span className="mu">بانتظار مراجعتك</span>}
+          {t.review.map((x) => <div key={`r${x.id}`} className="row"><Link className="f" to={`/claims/${x.id}`}>{x.text}</Link><span className="pill p-ac">مراجعة</span></div>)}</>;
+      }
       case "my_cases":
         return d.my_cases?.length ? d.my_cases.map((c) => <div key={c.id} className="row"><Link className="f" to={c.link}>{c.title}</Link></div>) : <Empty t="لا قضايا." />;
       case "pending_approvals":

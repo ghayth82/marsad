@@ -22,13 +22,13 @@ from marsad.models.engines import Notification
 from marsad.models.reports import AlertDelivery
 from marsad.rbac.service import effective_permissions, get_setting, set_setting
 
-URGENT = {"rumor.return", "rumor.spike", "campaign", "follow"}
+URGENT = {"rumor.return", "rumor.spike", "campaign", "follow", "workflow.assigned", "workflow.overdue"}
 AUDIENCE = {"tip": "claims.create", "promise": "monitor.view", "workflow": None, "rumor": "monitor.view", "campaign": "monitor.view", "follow": None, "source": "sources.manage",
             "engine": "engines.manage", "report": "monitor.view", "story": "monitor.view"}
 TG_SETTING, CHATS, LINKS = "alerts.telegram", "alerts.telegram_chats", "alerts.telegram_links"
 TZ = "Asia/Amman"
 ICON = {"rumor.return": "🔁", "rumor.spike": "🚨", "campaign": "🕸", "follow": "🔔", "source.error": "⚠️", "report.morning": "☀️",
-        "report.weekly": "📊", "tip.new": "📨", "promise.due": "⏰"}
+        "report.weekly": "📊", "tip.new": "📨", "promise.due": "⏰", "workflow.assigned": "📌", "workflow.overdue": "⏱", "workflow.soon": "⏳"}
 
 
 def tg_base() -> str:

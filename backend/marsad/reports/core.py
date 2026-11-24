@@ -154,6 +154,11 @@ def dashboard(db: Session, user: User) -> dict:
         pend += [{"kind": "مسودة", "text": d.title[:120], "link": f"/story-builder/{d.id}"}
                  for d in db.scalars(select(Draft).where(Draft.status != "approved", Draft.author_id != user.id, Draft.case_id.in_(member_cases)).limit(5))]
     out["pending_approvals"] = pend
+    if {"claims.create", "verdicts.propose", "verdicts.approve"} & perms:
+        from marsad.org import workflow
+
+        m = workflow.mine(db, user)
+        out["my_tasks"] = {"tasks": m["tasks"][:8], "review": m["review"][:5]}
     if "engines.manage" in perms or "engines.use" in perms:
         month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         cost = db.scalar(select(func.coalesce(func.sum(EngineRun.cost_usd), 0.0)).where(EngineRun.created_at >= month)) if hasattr(EngineRun, "cost_usd") else 0

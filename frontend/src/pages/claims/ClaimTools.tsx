@@ -157,3 +157,49 @@ export function ResultCard({ cid }: { cid: number }) {
     </section>
   );
 }
+
+// ---------- سير العمل التحريري (البند 14) ----------
+
+const PRI: Record<string, string> = { urgent: "عاجل", high: "مهم", normal: "عادي" };
+
+export function WorkflowPanel({ c, onDone }: { c: { id: number; status: string; assignee_id: number | null; priority: string; due_at: string | null }; onDone: () => void }) {
+  const [people, setPeople] = useState<{ id: number; name: string }[] | null>(null);
+  const [msg, setMsg] = useState<{ k: string; t: string } | null>(null);
+  const [reason, setReason] = useState("");
+  const [me, setMe] = useState<{ id: number; perms: string[] } | null>(null);
+  useEffect(() => {
+    api<{ people: { id: number; name: string }[] }>("/api/workflow/people").then((r) => setPeople(r.people)).catch(() => setPeople(null));
+    api<{ id: number; access: { effective: string[] } }>("/api/me").then((m) => setMe({ id: m.id, perms: m.access.effective }));
+  }, []);
+  if (!people || !me) return null;
+  const editor = me.perms.includes("verdicts.approve");
+  const open = ["new", "assigned", "investigating", "proposed"].includes(c.status);
+  const act = async (fn: () => Promise<unknown>, ok: string) => { setMsg(null); try { await fn(); setMsg({ k: "ok", t: ok }); onDone(); } catch (e) { setMsg({ k: "err", t: (e as Error).message }); } };
+  const put = (body: object) => act(() => api(`/api/claims/${c.id}/workflow`, { method: "PUT", body }), "حُفظ.");
+  const overdue = c.due_at && open && new Date(c.due_at) <= new Date();
+  return (
+    <section className="card" aria-label="سير العمل">
+      <h2>سير العمل</h2>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <label className="fld" style={{ flex: "1 1 160px" }}>المُسند إليه
+          <select className="inp" value={c.assignee_id ?? ""} disabled={!open} onChange={(e) => e.target.value && put({ assignee_id: Number(e.target.value) })}>
+            <option value="">— غير مُسند —</option>
+            {people.filter((p) => editor || p.id === me.id || p.id === c.assignee_id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select></label>
+        <label className="fld" style={{ flex: "1 1 110px" }}>الأولوية
+          <select className="inp" value={c.priority} disabled={!open} onChange={(e) => put({ priority: e.target.value })}>
+            {Object.entries(PRI).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+      </div>
+      {c.due_at && <span className={overdue ? "msg err" : "mu"}>المهلة: {new Date(c.due_at).toLocaleString("ar", { dateStyle: "short", timeStyle: "short" })}{overdue ? " — تجاوزها" : ""}</span>}
+      {c.assignee_id && <span className="mu">الاعتماد بمراجع ثانٍ غير كاتب الحكم.</span>}
+      {["new", "assigned"].includes(c.status) && <button className="btn sm" onClick={() => act(() => api(`/api/claims/${c.id}/workflow/start`, { method: "POST" }), "بدأ التحقق.")}>ابدأ التحقق</button>}
+      {editor && open && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <input className="inp" style={{ flex: "1 1 140px" }} placeholder="سبب الرفض" value={reason} onChange={(e) => setReason(e.target.value)} aria-label="سبب رفض الادّعاء" />
+          <button className="btn sm danger" style={{ whiteSpace: "nowrap" }} disabled={reason.trim().length < 3} onClick={() => act(() => api(`/api/claims/${c.id}/workflow/dismiss`, { method: "POST", body: { reason } }), "رُفض الادّعاء.")}>رفض الادّعاء</button>
+        </div>
+      )}
+      {msg && <div className={`msg ${msg.k}`}>{msg.t}</div>}
+    </section>
+  );
+}

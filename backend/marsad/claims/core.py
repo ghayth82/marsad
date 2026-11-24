@@ -119,7 +119,7 @@ def auto_extract(db: Session, item: Item) -> list[Claim]:
 # ---------- الأحكام ----------
 
 def propose_verdict(db: Session, user: User, c: Claim, label: str, grade: str, explanation: str,
-                    engine_batch_id: int | None = None) -> Verdict:
+                    engine_batch_id: int | None = None, correction_reason: str = "") -> Verdict:
     if not has_permission(user, "verdicts.propose"):
         raise PermissionError_("لا تملك صلاحية اقتراح حكم")
     if label not in VERDICT_LABELS or grade not in EVIDENCE_GRADES:
@@ -129,11 +129,17 @@ def propose_verdict(db: Session, user: User, c: Claim, label: str, grade: str, e
     if len(explanation.strip()) < 10:
         raise ClaimError("اكتب شرحًا للحكم")
     before = current_verdict(c)
+    if current_verdict(c, approved_only=True) is not None and len(correction_reason.strip()) < 5:
+        raise ClaimError("لهذا الادّعاء حكم معتمد؛ تعديله تصحيح يُسجَّل علنًا، فاكتب سبب التصحيح")
     v = Verdict(claim_id=c.id, label=label, evidence_grade=grade, explanation=explanation.strip(),
                 author_id=user.id, engine_batch_id=engine_batch_id)
+    if correction_reason.strip():
+        c.meta = {**(c.meta or {}), "pending_correction": {"verdict_id": None, "reason": correction_reason.strip()}}
     db.add(v)
     c.status = "proposed"
     db.flush()
+    if correction_reason.strip():
+        c.meta = {**(c.meta or {}), "pending_correction": {"verdict_id": v.id, "reason": correction_reason.strip()}}
     record(db, user, "verdict.propose", "claim", str(c.id),
            None if before is None else {"label": before.label, "grade": before.evidence_grade, "status": before.status},
            {"label": label, "grade": grade, "verdict_id": v.id})
@@ -145,12 +151,39 @@ def approve_verdict(db: Session, user: User, c: Claim, approve: bool = True, not
     if v is None or v.status != "proposed":
         raise ClaimError("لا يوجد حكم مقترح بانتظار الاعتماد")
     check_can_approve(db, user, v.author_id, "verdicts.approve")
+    from marsad.org import workflow
+
+    if approve and workflow.in_workflow(c) and v.author_id is not None and v.author_id == user.id:
+        raise PermissionError_("هذا الادّعاء في سير العمل التحريري: يعتمده مراجع ثانٍ غير كاتب الحكم")
+    previous = current_verdict(c, approved_only=True)
     v.status = "approved" if approve else "rejected"
     v.approved_by, v.approved_at = user.id, utcnow()
     c.status = "verdict" if approve else "investigating"
     record(db, user, "verdict.approve" if approve else "verdict.reject", "claim", str(c.id),
            {"status": "proposed"}, {"status": v.status, "verdict_id": v.id, "note": note})
+    pending = (c.meta or {}).get("pending_correction") or {}
+    if pending.get("verdict_id") == v.id:
+        c.meta = {k: val for k, val in (c.meta or {}).items() if k != "pending_correction"}
+    if approve:
+        from marsad.org import corrections, public_api
+
+        if previous is not None and previous.id != v.id:
+            corrections.record_correction(db, c, previous, v, pending.get("reason", "") if pending.get("verdict_id") == v.id else "", user.id)
+            event = "verdict.corrected"
+        else:
+            event = "verdict.approved"
+        public_api.emit(db, event, verdict_payload(c, v, previous if event == "verdict.corrected" else None))
     return v
+
+
+def verdict_payload(c: Claim, v: Verdict, previous: Verdict | None = None) -> dict:
+    """الحكم كما يراه نظام خارجي (Webhook والواجهة البرمجية): دون أسماء الصحفيين."""
+    out = {"claim_id": c.id, "claim": c.text, "speaker": c.speaker, "label": v.label, "evidence_grade": v.evidence_grade,
+           "explanation": v.explanation, "approved_at": v.approved_at.isoformat() if v.approved_at else None,
+           "first_seen_at": c.first_seen_at.isoformat() if c.first_seen_at else None}
+    if previous is not None:
+        out["previous"] = {"label": previous.label, "evidence_grade": previous.evidence_grade}
+    return out
 
 
 # ---------- شجرة الانتشار ----------

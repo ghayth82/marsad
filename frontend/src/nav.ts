@@ -11,7 +11,7 @@ export const SECTIONS: Section[] = [
   { path: "/stories", ar: "القصة", en: "Stories", any: ["monitor.view"] },
   { path: "/rumors", ar: "الشائعات", en: "Rumors", any: ["monitor.view", "claims.create"] },
   { path: "/claims", ar: "الادّعاء", en: "Claims", any: ["claims.create", "verdicts.propose", "verdicts.approve"] },
-  { path: "/tools", ar: "أدوات التحقق", en: "Tools", any: ["claims.create", "monitor.view", "labs.use", "cases.create"] },
+  { path: "/tools", ar: "أدوات التحقق", en: "Tools", any: ["claims.create", "monitor.view", "labs.use", "cases.create", "verdicts.propose", "verdicts.approve"] },
   { path: "/media-lab", ar: "الصور والفيديو", en: "Media lab", any: ["labs.use"] },
   { path: "/audio-lab", ar: "الصوت", en: "Audio lab", any: ["labs.use"] },
   { path: "/entities", ar: "الكيان", en: "Entities", any: ["monitor.view"] },
@@ -22,7 +22,7 @@ export const SECTIONS: Section[] = [
   { path: "/reports", ar: "التقارير", en: "Reports", any: ["monitor.view"] },
   { path: "/stats", ar: "الإحصاءات", en: "Statistics", any: ["stats.view"] },
   { path: "/training", ar: "التدريب", en: "Training", any: ["training.participate", "training.manage"] },
-  { path: "/admin", ar: "الإدارة", en: "Admin", any: ["users.manage", "system.manage", "audit.view"] },
+  { path: "/admin", ar: "الإدارة", en: "Admin", any: ["users.manage", "system.manage", "audit.view", "api.manage"] },
   { path: "/help", ar: "الدليل", en: "Help", any: [] },
 ];
 

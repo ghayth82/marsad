@@ -4,7 +4,7 @@ import { api, ApiError } from "../../api";
 import { Presence } from "../../components/Presence";
 import { useCan } from "../../session";
 import { Rumors, STATUS, labelPill, type ClaimRow } from "./Rumors";
-import { ArchivePanel, FactCheckPanel, FiguresPanel, ResultCard, type FactCheck } from "./ClaimTools";
+import { ArchivePanel, FactCheckPanel, FiguresPanel, ResultCard, WorkflowPanel, type FactCheck } from "./ClaimTools";
 
 type V = { id: number; label: string; evidence_grade: string; explanation: string; status: string; author_id: number; approved_at: string | null; created_at: string };
 type Node = { item_id: number; parent_item_id: number | null; title: string; outlet: string; url: string; time: string; kind: string; source_kind: string };
@@ -12,7 +12,7 @@ type Ev = { id: number; kind: string; title: string; url: string; sha256: string
 type Full = ClaimRow & { speaker: string; first_item: { id: number; title: string; url: string; outlet: string } | null;
   official_item: { id: number; title: string; url: string } | null; official_suggestions: { item_id: number; title: string; outlet: string; denial: boolean; url: string }[];
   spread: { nodes: Node[]; coordination: { start: string; outlets: string[]; note: string }[] }; evidence: Ev[]; history: V[]; claimreview: object | null;
-  factcheck: FactCheck; tip: string | null; transcript: { media_id: number; start: number } | null };
+  factcheck: FactCheck; tip: string | null; assignee_id: number | null; priority: string; due_at: string | null; has_approved: boolean; transcript: { media_id: number; start: number } | null };
 
 const LABELS = ["صحيح", "صحيح جزئيًا", "مضلل", "مفبرك", "غير مؤكد"];
 const GRADES = ["قاطع", "مؤشر قوي", "لا يكفي"];
@@ -34,7 +34,7 @@ function Card() {
   const [c, setC] = useState<Full | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [ev, setEv] = useState({ kind: "link", title: "", url: "", grade: "", note: "", is_conclusive: false });
-  const [vf, setVf] = useState({ label: "", evidence_grade: "", explanation: "" });
+  const [vf, setVf] = useState({ label: "", evidence_grade: "", explanation: "", correction_reason: "" });
   const [edit, setEdit] = useState<{ text: string; speaker: string } | null>(null);
   const load = () => api<Full>(`/api/claims/${id}`).then(setC);
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,7 +132,8 @@ function Card() {
               <label className="fld">الحكم<select className="inp" value={vf.label} onChange={(x) => setVf({ ...vf, label: x.target.value })}><option value="">اختر…</option>{LABELS.map((l) => <option key={l}>{l}</option>)}</select></label>
               <label className="fld">درجة الدليل<select className="inp" value={vf.evidence_grade} onChange={(x) => setVf({ ...vf, evidence_grade: x.target.value })}><option value="">اختر…</option>{GRADES.map((g) => <option key={g}>{g}</option>)}</select></label>
               <label className="fld">الشرح<textarea className="inp" rows={4} style={{ height: "auto", padding: 10 }} value={vf.explanation} onChange={(x) => setVf({ ...vf, explanation: x.target.value })} /></label>
-              <button className="btn pri" disabled={!vf.label || !vf.evidence_grade}>اقتراح الحكم</button>
+              {c.has_approved && <label className="fld">سبب التصحيح (يظهر في سجل التصحيحات)<textarea className="inp" rows={2} value={vf.correction_reason} onChange={(x) => setVf({ ...vf, correction_reason: x.target.value })} /></label>}
+              <button className="btn pri" disabled={!vf.label || !vf.evidence_grade || (c.has_approved && vf.correction_reason.trim().length < 5)}>{c.has_approved ? "اقتراح تصحيح" : "اقتراح الحكم"}</button>
             </form>
           )}
           {pending && can("verdicts.approve") && (
@@ -153,6 +154,7 @@ function Card() {
               {can("claims.create") && <button className="btn sm" onClick={() => run(() => api(`/api/claims/${c.id}`, { method: "PUT", body: { official_item_id: s.item_id } }), "رُبط البيان.")}>ربط</button>}</div>
           ))}
         </section>
+        <WorkflowPanel c={c} onDone={load} />
         <FactCheckPanel cid={c.id} fc={c.factcheck} can={can("claims.create") || can("verdicts.propose")} onDone={load} />
         <FiguresPanel cid={c.id} />
         {(can("claims.create") || can("monitor.view")) && <ArchivePanel cid={c.id} onDone={load} />}

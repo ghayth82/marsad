@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from marsad.api import admin, analysis, auth, cases, claims, engines, labs, presence, ratings, reports, social, sources, stats, tools
+from marsad.api import admin, analysis, auth, cases, claims, engines, labs, presence, ratings, reports, social, sources, org, stats, tools
 from marsad.core.paths import ensure_storage
 from marsad.db import get_db, get_engine, init_engine, migrate
 from marsad.rbac.service import seed_builtin_roles
@@ -56,8 +56,9 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
     @app.middleware("http")
     async def csrf_guard(request: Request, call_next):
         # كل طلب يغيّر شيئًا يجب أن يأتي من واجهتنا (ترويسة لا يرسلها نموذج من موقع آخر)
+        bearer = request.url.path.startswith("/api/v1/") and (request.headers.get("authorization") or "").lower().startswith("bearer ")
         if request.url.path.startswith("/api/") and request.method not in SAFE_METHODS \
-                and request.headers.get("x-marsad") != "1":
+                and request.headers.get("x-marsad") != "1" and not bearer:
             return JSONResponse({"detail": "طلب مرفوض"}, status_code=403)
         return await call_next(request)
 
@@ -87,6 +88,9 @@ def create_app(static_dir: Path | None = None) -> FastAPI:
     app.include_router(presence.router)
     app.include_router(stats.router)
     app.include_router(tools.router)
+    app.include_router(org.router)
+    app.include_router(org.v1)
+    app.include_router(org.public)
 
     if static_dir is None:
         from marsad.core.paths import app_home

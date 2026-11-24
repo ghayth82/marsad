@@ -49,7 +49,10 @@ def test_verdict_cycle_four_eyes_conclusive_rule_and_history(admin, make_client)
     ed.post(f"/api/claims/{ed_self}/verdict", json={"label": "مفبرك", "evidence_grade": "مؤشر قوي", "explanation": "لا يوجد أي قرار بذلك."})
     assert ed.post(f"/api/claims/{ed_self}/approve", json={}).status_code == 403  # العينان الأربع
     assert ed.post(f"/api/claims/{cid}/approve", json={}).status_code == 200
-    j.post(f"/api/claims/{cid}/verdict", json={"label": "صحيح جزئيًا", "evidence_grade": "مؤشر قوي", "explanation": "الطوابير حقيقية لكن في مدينة أخرى."})
+    # تعديل حكم معتمد تصحيح: يُرفض دون سبب (البند 14)
+    assert j.post(f"/api/claims/{cid}/verdict", json={"label": "صحيح جزئيًا", "evidence_grade": "مؤشر قوي", "explanation": "الطوابير حقيقية لكن في مدينة أخرى."}).status_code == 422
+    j.post(f"/api/claims/{cid}/verdict", json={"label": "صحيح جزئيًا", "evidence_grade": "مؤشر قوي", "explanation": "الطوابير حقيقية لكن في مدينة أخرى.",
+                                                "correction_reason": "ظهرت صورة أصلية بموقع مختلف"})
     c = admin.get(f"/api/claims/{cid}").json()
     assert [h["status"] for h in c["history"]] == ["approved", "proposed"]  # كل نسخة محفوظة
     audit = [a for a in admin.get("/api/admin/audit").json() if a["target_type"] == "claim" and a["target_id"] == str(cid)]
