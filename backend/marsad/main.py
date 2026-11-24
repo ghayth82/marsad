@@ -43,21 +43,30 @@ def _schedule_data_upgrades(db) -> None:
 
     from marsad.analysis.core import ENTITIES_REV, reprocess_if_needed
     from marsad.models.monitoring import Item
+    from marsad.monitor.pubtime import PUBTIME_REV, refresh_from_archive
     from marsad.rbac.service import get_setting, set_setting
 
-    if int(get_setting(db, "entities_rev", 1) or 1) >= ENTITIES_REV:
+    need_ent = int(get_setting(db, "entities_rev", 1) or 1) < ENTITIES_REV
+    need_pub = int(get_setting(db, "pubtime_rev", 1) or 1) < PUBTIME_REV
+    if not (need_ent or need_pub):
         return
     if db.scalar(select(Item.id).limit(1)) is None:  # قاعدة جديدة: لا شيء يُعاد
         set_setting(db, "entities_rev", ENTITIES_REV)
+        set_setting(db, "pubtime_rev", PUBTIME_REV)
         db.commit()
         return
 
     def run() -> None:
+        log = logging.getLogger(__name__)
         s = next(get_db())
         try:
+            if need_pub:
+                log.info("وقت النشر من الأرشيف: %s", refresh_from_archive(s))
+                set_setting(s, "pubtime_rev", PUBTIME_REV)
+                s.commit()
             reprocess_if_needed(s)
         except Exception:
-            logging.getLogger(__name__).exception("فشلت إعادة معالجة الكيانات")
+            log.exception("فشلت ترقية البيانات")
         finally:
             s.close()
 

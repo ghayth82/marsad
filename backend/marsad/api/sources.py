@@ -62,12 +62,21 @@ def outlet_out(db: Session, o: Outlet) -> dict:
             "logo_url": o.logo_url, "tags": o.tags, "items": n, "sources": [source_out(s) for s in o.sources]}
 
 
+def _pub_src(i: Item) -> str:
+    from marsad.monitor.pubtime import SOURCE_AR
+
+    if not i.published_at:
+        return ""
+    k = (i.meta or {}).get("published_source") or ("sitemap_date" if mon.published_date_only(i) else "")
+    return SOURCE_AR.get(k, "")
+
+
 def item_out(i: Item, full: bool = False) -> dict:
     d = {"id": i.id, "url": i.url, "title": i.title, "excerpt": i.text[:280], "source_id": i.source_id,
          "outlet_id": i.outlet_id, "source_title": i.source.title, "source_kind": i.source.kind,
          "published_at": _dt(i.published_at), "captured_at": _dt(i.captured_at), "status": i.status,
          "version": i.version, "media": i.media, "author": i.author, "story_id": i.story_id,
-         "published_date_only": mon.published_date_only(i)}
+         "published_date_only": mon.published_date_only(i), "published_source": _pub_src(i)}
     if full:
         d["text"] = i.text
         d["meta"] = i.meta

@@ -173,6 +173,11 @@ def first_time(i: Item) -> tuple[datetime, str]:
     from marsad.monitor.service import published_date_only
 
     if i.published_at and not published_date_only(i) and i.published_at <= (i.captured_at + timedelta(minutes=5)):
+        src = (i.meta or {}).get("published_source")
+        if src == "relative":
+            return i.published_at, "وقت النشر المعلن تقريبًا («منذ…» في الصفحة)"
+        if src == "page_text":
+            return i.published_at, "وقت النشر الظاهر في صفحة الخبر"
         return i.published_at, "وقت النشر المعلن"
     return i.captured_at, "وقت رصدنا لها"
 

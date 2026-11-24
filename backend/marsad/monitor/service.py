@@ -42,24 +42,11 @@ def archive_html(raw: bytes, captured: datetime) -> tuple[str, str]:
     return rel, sha
 
 
-_TIME_META = ("article:published_time", "og:published_time", "datePublished", "pubdate", "publishdate",
-              "date", "dc.date", "dc.date.issued", "sailthru.date", "parsely-pub-date")
+def page_published(html: str, title: str = "", country: str = "") -> datetime | None:
+    """وقت النشر بالساعة من صفحة الخبر (البيانات المقروءة آليًا ثم الوقت الظاهر تحت العنوان)، أو None."""
+    from marsad.monitor import pubtime
 
-
-def page_published(html: str) -> datetime | None:
-    """وقت النشر بالساعة من صفحة الخبر نفسها (وسوم meta، JSON-LD، <time>)، أو None إن لم تُذكر الساعة."""
-    cands: list[str] = []
-    for k in _TIME_META:
-        cands += re.findall(rf'<meta[^>]+(?:property|name|itemprop)=["\']{re.escape(k)}["\'][^>]*content=["\']([^"\']+)', html, re.I)
-        cands += re.findall(rf'<meta[^>]+content=["\']([^"\']+)["\'][^>]*(?:property|name|itemprop)=["\']{re.escape(k)}["\']', html, re.I)
-    cands += re.findall(r'"datePublished"\s*:\s*"([^"]+)"', html)
-    cands += re.findall(r'<time[^>]+datetime=["\']([^"\']+)', html, re.I)
-    for c in cands:
-        if readers.has_time(c):
-            d = readers._dt(c)
-            if d:
-                return d.astimezone(timezone.utc)
-    return None
+    return pubtime.from_page(html, title, country)[0]
 
 
 def extract(raw: bytes, url: str) -> dict:
@@ -70,7 +57,7 @@ def extract(raw: bytes, url: str) -> dict:
     return {"text": text.strip(), "title": (md.title if md else "") or "", "author": (md.author if md else "") or "",
             "date": readers._dt(md.date) if md and md.date else None,
             "date_has_time": bool(md and md.date and readers.has_time(md.date)),
-            "published_precise": page_published(html),
+            "raw_html": html,
             "image": md.image if md and md.image else ""}
 
 
@@ -122,6 +109,8 @@ def store_entry(db: Session, src: Source, e: dict, fetch_full: bool = True) -> I
     title, text, author = e.get("title", ""), e.get("text", ""), e.get("author", "")
     published, media, archive = e.get("published_at"), list(e.get("media", [])), None
     date_only = bool(published and e.get("date_only"))
+    # من أين جاء الوقت: المنصة أو الخلاصة تعطيه بالدقيقة؛ خريطة الموقع قد تعطي التاريخ وحده
+    pub_src = ("sitemap_date" if date_only else "platform") if published else ""
     if fetch_full and not e.get("full") and src.kind != "gdelt":
         try:
             r = fetch.get(e["url"])
@@ -130,10 +119,15 @@ def store_entry(db: Session, src: Source, e: dict, fetch_full: bool = True) -> I
             text = x["text"] or text or e.get("summary", "")
             title = title or x["title"]
             author = author or x["author"]
-            if x.get("published_precise"):  # الساعة الحقيقية من صفحة الخبر تتقدم على تاريخ الخريطة
-                published, date_only = x["published_precise"], False
-            elif not published and x["date"]:
-                published, date_only = x["date"], not x.get("date_has_time")
+            if not published or date_only:  # الساعة من صفحة الخبر نفسها تتقدم على تاريخ الخريطة
+                from marsad.monitor import pubtime
+
+                found, how = pubtime.from_page(x["raw_html"], title or x["title"], src.outlet.country if src.outlet else "", now)
+                if found:
+                    published, date_only, pub_src = found, False, how
+                elif not published and x["date"]:
+                    published, date_only = x["date"], not x.get("date_has_time")
+                    pub_src = "page_meta" if not date_only else "sitemap_date"
             if x["image"] and not any(m.get("url") == x["image"] for m in media):
                 media.append({"type": "image", "url": x["image"]})
         except fetch.FetchError as err:
@@ -144,7 +138,8 @@ def store_entry(db: Session, src: Source, e: dict, fetch_full: bool = True) -> I
     item = Item(source_id=src.id, outlet_id=src.outlet_id, url=e["url"], title=title.strip(), text=text.strip(),
                 author=author[:300], published_at=published, captured_at=now, media=media,
                 content_hash=content_hash(title, text), version=1, last_checked_at=now,
-                meta={**e.get("meta", {}), **({"published_date_only": True} if date_only and published else {})})
+                meta={**e.get("meta", {}), **({"published_date_only": True} if date_only and published else {}),
+                      **({"published_source": pub_src} if published and pub_src else {})})
     db.add(item)
     _version(item, "new", archive, now)
     _analyze(db, item)

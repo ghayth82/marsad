@@ -16,6 +16,7 @@ dependencies = [
   "httpx>=0.27",
   "cryptography>=42",
   "trafilatura>=2.0",
+  "tzdata>=2024.1",  # المناطق الزمنية على ويندوز (وقت النشر بتوقيت بلد الموقع)
   "feedparser>=6.0",
   "python-multipart>=0.0.9",
   "pillow>=10.4",

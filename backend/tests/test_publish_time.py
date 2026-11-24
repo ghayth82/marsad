@@ -34,3 +34,86 @@ def test_date_only_detection_and_first_time():
     assert published_date_only(_item(midnight + timedelta(hours=5), meta={"published_date_only": True}))
     t, basis = first_time(_item(midnight))
     assert basis == "وقت رصدنا لها"  # لا يصير الموقع «أول من نشر» بسبب منتصف ليل وهمي
+
+
+# ---- الوقت من الصفحة لأي مصدر: البيانات المقروءة آليًا، ثم الظاهر تحت العنوان، ثم «منذ…» ----
+import pytest
+
+from marsad.monitor.pubtime import from_page
+
+NOW = datetime(2026, 11, 24, 20, 0, tzinfo=timezone.utc)  # 23:00 بتوقيت عمّان
+
+
+def page(head_meta="", under_title="", after=""):
+    return f"""<html><head>{head_meta}</head><body><header>الثلاثاء: 24 نوفمبر 2026</header>
+    <h1>وثيقة استخبارية عراقية تكشف استمرار تهريب النفط</h1><div class="meta">{under_title}</div>
+    <p>نص الخبر هنا.</p><aside>أخبار ذات صلة 2026-11-20 08:00</aside>{after}</body></html>"""
+
+
+@pytest.mark.parametrize("under,expected_local", [
+    ("24 نوفمبر 2026 <span>21:45</span>", (21, 45)),            # خبرني: التاريخ ثم الساعة في عنصر منفصل
+    ("21:45 | 24 نوفمبر 2026", (21, 45)),                         # الساعة قبل التاريخ
+    ("نشر بتاريخ: 24 تشرين الثاني 2026 - 09:15 م", (21, 15)),     # الأشهر الشامية و«م»
+    ("2026/11/24 09:15 ص", (9, 15)),
+    ("24-11-2026 ١٠:٣٠", (10, 30)),                               # أرقام عربية مشرقية
+    ("Nov 24, 2026 7:05 pm", (19, 5)),
+])
+def test_visible_time_under_title(under, expected_local):
+    d, how = from_page(page(under_title=under), country="الأردن", now=NOW)
+    assert how == "page_text"
+    amman = d.astimezone(timezone(timedelta(hours=3)))
+    assert (amman.year, amman.month, amman.day, amman.hour, amman.minute) == (2026, 11, 24, *expected_local)
+
+
+def test_meta_beats_text_and_country_timezone():
+    d, how = from_page(page('<meta property="article:published_time" content="2026-11-24T10:00:00+02:00">', "24 نوفمبر 2026 21:45"), now=NOW)
+    assert how == "page_meta" and d.hour == 8
+    # موقع مصري يكتب 21:45 بتوقيت القاهرة (UTC+2 شتاءً)
+    d, _ = from_page(page(under_title="24 نوفمبر 2026 21:45"), country="مصر", now=NOW)
+    assert (d.hour, d.minute) == (19, 45)
+
+
+def test_header_date_without_time_and_related_news_are_ignored():
+    d, how = from_page(page(), now=NOW)  # لا ساعة تحت العنوان: لا يُؤخذ تاريخ الترويسة ولا أوقات الأخبار الأخرى
+    assert d is None and how == ""
+
+
+def test_relative_and_future_rejected():
+    d, how = from_page(page(under_title="منذ 3 ساعات"), now=NOW)
+    assert how == "relative" and d == NOW - timedelta(hours=3)
+    d, how = from_page(page(under_title="قبل ساعتين"), now=NOW)
+    assert d == NOW - timedelta(hours=2)
+    d, how = from_page(page(under_title="25 نوفمبر 2026 21:45"), country="الأردن", now=NOW)  # في المستقبل
+    assert how != "page_text"
+
+
+def test_refresh_from_archive_fixes_old_items(admin):
+    from datetime import datetime as dt
+
+    from marsad.db import get_db
+    from marsad.models.monitoring import Item, ItemVersion, Outlet, Source
+    from marsad.monitor.pubtime import refresh_from_archive
+    from marsad.monitor.service import archive_html
+
+    db = next(get_db())
+    o = Outlet(name="خبرني", country="الأردن")
+    db.add(o)
+    db.flush()
+    s = Source(outlet_id=o.id, url="https://kh.example/", kind="sitemap", read_url="https://kh.example/sm.xml")
+    db.add(s)
+    db.flush()
+    cap = dt(2026, 11, 24, 18, 50, tzinfo=timezone.utc)
+    raw = page(under_title="24 نوفمبر 2026 <span>21:45</span>").encode()
+    rel, sha = archive_html(raw, cap)
+    it = Item(source_id=s.id, outlet_id=o.id, url="https://kh.example/1", title="وثيقة استخبارية عراقية تكشف استمرار تهريب النفط",
+              text="", captured_at=cap, published_at=dt(2026, 11, 24, tzinfo=timezone.utc), content_hash="x", version=1)
+    it.versions.append(ItemVersion(version=1, change="new", title=it.title, text="", content_hash="x", captured_at=cap,
+                                   archive_path=rel, archive_sha256=sha))
+    db.add(it)
+    db.commit()
+    assert refresh_from_archive(db) == {"checked": 1, "fixed": 1}
+    db.refresh(it)
+    assert (it.published_at.hour, it.published_at.minute) == (18, 45)  # 21:45 بتوقيت عمّان
+    r = admin.get(f"/api/items/{it.id}").json()
+    assert r["published_date_only"] is False and r["published_source"] == "النص الظاهر في صفحة الخبر"
+    db.close()

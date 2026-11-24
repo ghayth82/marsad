@@ -7,7 +7,7 @@ import { fmtPublished, fmtTime } from "../lib/time";
 
 type Full = {
   id: number; url: string; title: string; text: string; source_title: string; author: string; status: string;
-  published_at: string | null; published_date_only?: boolean; captured_at: string; story_id: number | null;
+  published_at: string | null; published_date_only?: boolean; published_source?: string; captured_at: string; story_id: number | null;
   versions: { version: number; change: string; title: string; captured_at: string; archived: boolean; archive_sha256: string }[];
   diffs: { from: number; to: number; title_changed: boolean; title_before: string; title_after: string; text: { op: string; before: string; after: string }[] }[];
 };
@@ -60,7 +60,8 @@ export function ItemView({ id, compact }: { id: number; compact?: boolean }) {
       <h2 className="reader-title">{it.title || "(دون عنوان)"}</h2>
       <span className="mu">
         {it.source_title}{it.author ? ` · ${it.author}` : ""} · رُصد {fmtTime(it.captured_at)}
-        {it.published_at ? ` · نُشر ${fmtPublished(it.published_at, it.published_date_only)}` : ""} ·{" "}
+        {it.published_at ? ` · نُشر ${fmtPublished(it.published_at, it.published_date_only)}` : " · وقت النشر غير معلن"}
+        {it.published_source ? <span title="من أين قرأ البرنامج وقت النشر"> (المصدر: {it.published_source})</span> : null} ·{" "}
         <a href={it.url} target="_blank" rel="noreferrer noopener">الرابط الأصلي</a>
       </span>
       {it.status === "deleted" && <div className="msg err">حذف الموقع هذه المادة. ما تراه آخر نسخة رصدناها قبل الحذف.</div>}
