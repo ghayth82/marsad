@@ -45,9 +45,14 @@ jobs:
           gh release download $rel.tag_name -R BtbN/FFmpeg-Builds -p $asset.name -O "$o/ffmpeg-win64-gpl.zip"
 
           # llama.cpp (MIT): المحرك المحلي للنماذج المجانية. بناء Vulkan يعمل على بطاقات NVIDIA وAMD وIntel، وعلى المعالج دونها
-          $lrel = gh api repos/ggml-org/llama.cpp/releases/latest | ConvertFrom-Json
-          $lasset = $lrel.assets | Where-Object { $_.name -match '^llama-b\d+-bin-win-vulkan-x64\.zip$' } | Select-Object -First 1
-          if (-not $lasset) { throw "لم يُعثر على بناء llama.cpp لويندوز في $($lrel.tag_name)" }
+          # «latest» صار إصدارًا مرقّمًا دون ملفات تنفيذية؛ نأخذ أحدث إصدار فيه بناء ويندوز Vulkan
+          $lrel = $null; $lasset = $null
+          foreach ($r in (gh api "repos/ggml-org/llama.cpp/releases?per_page=40" | ConvertFrom-Json)) {
+            $a = $r.assets | Where-Object { $_.name -match '^llama-.*bin-win-vulkan-x64\.zip$' } | Select-Object -First 1
+            if ($a) { $lrel = $r; $lasset = $a; break }
+          }
+          if (-not $lasset) { throw "لم يُعثر على بناء llama.cpp لويندوز في آخر 40 إصدارًا" }
+          Write-Host "llama.cpp: $($lrel.tag_name) / $($lasset.name)"
           gh release download $lrel.tag_name -R ggml-org/llama.cpp -p $lasset.name -O "$o/llama-win-vulkan-x64.zip"
 
           # برنامج Tesseract لويندوز (Apache-2.0) من Chocolatey، مضغوطًا كما يُضمَّن في المُثبِّت

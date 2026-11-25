@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -92,6 +93,22 @@ def main() -> int:
         # الدقة تُحسب من القرار
         page.goto(f"{BASE}/engines/settings")
         expect(page.get_by_role("heading", name="دقة المحركات حسب المهمة")).to_be_visible()
+
+        # مكتبة المحركات: المتطلبات والكلفة والخصوصية قبل الاختيار، للمحلي والمدفوع
+        page.get_by_role("link", name="مكتبة المحركات").click()
+        expect(page.get_by_role("heading", name="جهازك")).to_be_visible()
+        allam = page.get_by_role("article", name="ALLaM 7B")
+        expect(allam.get_by_text("العربية والإنجليزية")).to_be_visible()
+        expect(allam.get_by_text("للمعلومة فقط")).to_be_visible()
+        expect(page.get_by_role("article", name="Qwen3.6 35B-A3B")).to_be_visible()
+        page.get_by_role("button", name="كبير").click()  # تصفية بالحجم
+        expect(page.get_by_role("article", name="ALLaM 7B")).to_have_count(0)
+        expect(page.get_by_role("heading", name="Claude (Anthropic)")).to_be_visible()
+        expect(page.get_by_role("link", name="الأسعار الحالية ↗").first).to_be_visible()
+        page.screenshot(path=SHOTS / "12-engines-library.png", full_page=True)
+        page.get_by_role("button", name="أضف هذا المحرك").first.click()
+        expect(page).to_have_url(re.compile(r"/engines/settings\?preset=claude"))
+        expect(page.get_by_text("صفحة المفتاح ↗")).to_be_visible()  # بطاقة المزوّد فوق نموذج الإضافة
         browser.close()
     print("E2E المحركات: كل الخطوات نجحت")
     return 0

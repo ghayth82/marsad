@@ -115,3 +115,10 @@ code.blk{display:block;padding:10px;background:var(--sf2);border:1px solid var(-
 .ap-sample{border:1px dashed var(--bd);border-radius:10px;padding:12px 14px;background:var(--sf2)}
 .swatch{width:30px;height:30px;border-radius:50%;border:3px solid transparent;cursor:pointer}
 .swatch[aria-pressed="true"]{border-color:var(--tx)}
+
+/* مكتبة المحركات */
+.eng-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.eng-card{border:1px solid var(--bd);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--sf)}
+.eng-facts{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:.95em}
+.eng-facts dt{color:var(--mu);white-space:nowrap}
+.eng-facts dd{margin:0}

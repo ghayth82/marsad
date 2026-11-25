@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Library, ProviderCard, type ProviderInfo } from "./Library";
+import { NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { useCan } from "../../session";
 import { BatchView } from "./BatchView";
@@ -24,12 +25,14 @@ export function Engines() {
     <>
       <nav className="tabs" aria-label="أقسام المحركات">
         <NavLink to="/engines" end className={({ isActive }) => (isActive ? "on" : "")}>تشغيل ومقارنة</NavLink>
+        <NavLink to="/engines/library" className={({ isActive }) => (isActive ? "on" : "")}>مكتبة المحركات</NavLink>
         {can("engines.manage") && <NavLink to="/engines/settings" className={({ isActive }) => (isActive ? "on" : "")}>الإعداد</NavLink>}
       </nav>
       <Notifications />
       <Routes>
         <Route index element={<RunPage data={data} />} />
         <Route path="batch/:id" element={<BatchRoute engines={data.engines} />} />
+        <Route path="library" element={<Library reloadEngines={load} />} />
         {can("engines.manage") && <Route path="settings" element={<SettingsPage data={data} reload={load} />} />}
       </Routes>
     </>
@@ -157,6 +160,9 @@ type Draft = { id?: number; name: string; provider: string; model: string; base_
 const emptyDraft: Draft = { name: "", provider: "anthropic", model: "", base_url: "", api_key: "", price_in: "", price_out: "", monthly_limit_usd: "", enabled: true };
 
 function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Promise<void> }) {
+  const [params] = useSearchParams();
+  const [info, setInfo] = useState<Record<string, ProviderInfo>>({});
+  useEffect(() => { api<{ providers: Record<string, ProviderInfo> }>("/api/engines/catalog").then((c) => setInfo(c.providers)).catch(() => {}); }, []);
   const st = data.settings;
   const [draft, setDraft] = useState<Draft | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -165,6 +171,12 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
   const [modelsErr, setModelsErr] = useState("");
   const [loadingModels, setLoadingModels] = useState(false);
   const openDraft = (d: Draft | null) => { setDraft(d); setModels([]); setModelsErr(""); };
+  // «أضف هذا المحرك» من المكتبة يفتح النموذج مملوءًا بالمزوّد المختار
+  const preset = params.get("preset");
+  useEffect(() => {
+    const p = preset ? PRESETS[preset] : undefined;
+    if (p) setDraft({ ...emptyDraft, ...p, base_url: p.base_url ?? "", price_in: p.price_in?.toString() ?? "", price_out: p.price_out?.toString() ?? "" });
+  }, [preset]);
   const fetchModels = async () => {
     if (!draft) return;
     setModelsErr(""); setLoadingModels(true);
@@ -262,14 +274,16 @@ function SettingsPage({ data, reload }: { data: EnginesPayload; reload: () => Pr
       <div className="side">
         <section className="card">
           <h2>{draft?.id ? "تعديل محرك" : "إضافة محرك"}</h2>
-          {!draft ? (
+          {!draft ? (<>
+            <span className="mu">قبل الاختيار: «مكتبة المحركات» تشرح كل محرك ومتطلباته وكلفته، وفيها النماذج المحلية المجانية.</span>
             <div className="tabs">
               {Object.entries({ claude: "Claude", gemini: "Gemini", openai: "OpenAI", ollama: "محلي (Ollama)", compatible: "مزوّد متوافق" }).map(([k, l]) => (
                 <button key={k} className="btn sm" onClick={() => { const p = PRESETS[k]; openDraft({ ...emptyDraft, ...p, base_url: p.base_url ?? "", price_in: p.price_in?.toString() ?? "", price_out: p.price_out?.toString() ?? "" }); }}>{l}</button>
               ))}
-            </div>
+            </div></>
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); submit(); }} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {info[draft.provider] && !draft.id && <ProviderCard p={info[draft.provider]} compact />}
               {draft.note && <div className="msg warn">{draft.note}</div>}
               <label className="fld">الاسم<input className="inp" required value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
               {(draft.provider === "openai_compatible" || draft.provider === "ollama") && (
