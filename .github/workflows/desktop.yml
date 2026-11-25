@@ -76,7 +76,12 @@ jobs:
           }
           Write-Host ($lock.sources | ConvertTo-Json)
           $t = "$env:RES/tools"
-          New-Item -ItemType Directory -Force "$t/ffmpeg", "$t/tesseract/tessdata" | Out-Null
+          New-Item -ItemType Directory -Force "$t/ffmpeg", "$t/tesseract/tessdata", "$t/llama" | Out-Null
+          if ($lock.files.name -contains 'llama-win-vulkan-x64.zip') {  # المحرك المحلي للنماذج المجانية
+            Expand-Archive "$d/llama-win-vulkan-x64.zip" "$env:RUNNER_TEMP/llama"
+            Copy-Item (Get-ChildItem "$env:RUNNER_TEMP/llama" -Recurse -Include *.exe, *.dll) "$t/llama/"
+            & "$t/llama/llama-server.exe" --version
+          }
           Expand-Archive "$d/ffmpeg-win64-gpl.zip" "$env:RUNNER_TEMP/ff"
           Copy-Item (Get-ChildItem "$env:RUNNER_TEMP/ff" -Recurse -Include ffmpeg.exe, ffprobe.exe) "$t/ffmpeg/"
           Expand-Archive "$d/tesseract-win64.zip" "$t/tesseract"

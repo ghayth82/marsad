@@ -5,6 +5,7 @@
 - gemini:             Google Gemini
 - openai_compatible:  أي مزوّد متوافق مع واجهة OpenAI، وvLLM
 - ollama:             محرك محلي عبر Ollama (واجهته المتوافقة مع OpenAI)
+- local:              المحرك المحلي المدمج (llama.cpp) بنماذج مجانية منزَّلة من نسخ غيث
 - fake:               محرك وهمي ثابت المخرجات للاختبارات (لا يتصل بشيء)
 """
 
@@ -22,6 +23,7 @@ PROVIDERS = {
     "gemini": {"label": "Google Gemini", "local": False, "base_url": "https://generativelanguage.googleapis.com/v1beta"},
     "openai_compatible": {"label": "مزوّد متوافق مع OpenAI", "local": False, "base_url": ""},
     "ollama": {"label": "محلي عبر Ollama", "local": True, "base_url": "http://127.0.0.1:11434/v1"},
+    "local": {"label": "محلي مدمج (مجاني)", "local": True, "base_url": ""},
     "fake": {"label": "وهمي (للاختبار)", "local": True, "base_url": ""},
 }
 
@@ -40,9 +42,12 @@ class Completion:
     model_version: str
 
 
-def _post(url: str, headers: dict, body: dict) -> dict:
+LOCAL_TIMEOUT = httpx.Timeout(900.0, connect=15.0)  # نموذج محلي على المعالج قد يحتاج دقائق
+
+
+def _post(url: str, headers: dict, body: dict, timeout: httpx.Timeout = TIMEOUT) -> dict:
     try:
-        r = httpx.post(url, headers=headers, json=body, timeout=TIMEOUT)
+        r = httpx.post(url, headers=headers, json=body, timeout=timeout)
     except httpx.HTTPError as e:
         raise ProviderError(f"تعذّر الاتصال بالمحرك: {e.__class__.__name__}") from None
     if r.status_code >= 400:
@@ -64,6 +69,15 @@ def complete(provider: str, *, model: str, system: str, user: str, api_key: str 
 
     if provider == "fake":
         return _fake(options, user)
+
+    if provider == "local":  # المحرك المدمج: يُحمَّل النموذج (أو يُبدَّل إليه) ثم يُسأل كأي مزوّد متوافق
+        from marsad.engines.local import RUNNER, LocalError
+
+        try:
+            base = RUNNER.ensure(model).rstrip("/")
+        except LocalError as e:
+            raise ProviderError(str(e)) from None
+        provider = "ollama"  # الواجهة نفسها، دون مفتاح
 
     if provider == "anthropic":
         if not api_key:
@@ -101,7 +115,7 @@ def complete(provider: str, *, model: str, system: str, user: str, api_key: str 
         headers = {"content-type": "application/json"}
         if api_key:
             headers["authorization"] = f"Bearer {api_key}"
-        d = _post(f"{base}/chat/completions", headers, body)
+        d = _post(f"{base}/chat/completions", headers, body, LOCAL_TIMEOUT if base.startswith("http://127.0.0.1") else TIMEOUT)
         choices = d.get("choices") or []
         if not choices:
             raise ProviderError("لم يُرجع المحرك أي مخرج")
@@ -148,7 +162,14 @@ def list_models(provider: str, *, api_key: str | None, base_url: str = "") -> li
     out: list[dict] = []
     if provider == "fake":
         return [{"id": "fake-model", "label": "نموذج وهمي"}]
-    if provider != "ollama" and not api_key:
+    if provider == "local":
+        from marsad.engines.local import catalog, installed
+
+        have = [{"id": m["id"], "label": m["name"]} for m in catalog() if installed(m)]
+        if not have:
+            raise ProviderError("لا نموذج محليًا منزَّلًا بعد؛ نزّل نموذجًا من «النماذج المحلية المجانية»")
+        return have
+    if provider not in ("ollama", "local") and not api_key:
         raise ProviderError("أدخل المفتاح أولًا لجلب النماذج")
     if provider == "anthropic":
         d = _get(f"{base}/v1/models?limit=1000", {"x-api-key": api_key, "anthropic-version": "2023-06-01"})

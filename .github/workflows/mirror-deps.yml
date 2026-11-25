@@ -1,4 +1,4 @@
-# نسخ احتياطية من المكوّنات الخارجية التي يضمّها المُثبِّت (نماذج Tesseract العربية وبرنامجه، وFFmpeg)
+# نسخ احتياطية من المكوّنات الخارجية التي يضمّها المُثبِّت (نماذج Tesseract العربية وبرنامجه، وFFmpeg، وllama.cpp)
 # في حساب غيث، بإصدارات مثبّتة وبصمات SHA-256، فلا يتأثر بناء البرنامج إن عدّلها أصحابها أو أوقفوها.
 #
 # - الملفات تُرفع إلى إصدار خاص في هذا المستودع (deps-<التاريخ>) مع ملف deps.lock.json.
@@ -44,6 +44,12 @@ jobs:
           if (-not $asset) { throw "لم يُعثر على بناء FFmpeg مناسب في $($rel.tag_name)" }
           gh release download $rel.tag_name -R BtbN/FFmpeg-Builds -p $asset.name -O "$o/ffmpeg-win64-gpl.zip"
 
+          # llama.cpp (MIT): المحرك المحلي للنماذج المجانية. بناء Vulkan يعمل على بطاقات NVIDIA وAMD وIntel، وعلى المعالج دونها
+          $lrel = gh api repos/ggml-org/llama.cpp/releases/latest | ConvertFrom-Json
+          $lasset = $lrel.assets | Where-Object { $_.name -match '^llama-b\d+-bin-win-vulkan-x64\.zip$' } | Select-Object -First 1
+          if (-not $lasset) { throw "لم يُعثر على بناء llama.cpp لويندوز في $($lrel.tag_name)" }
+          gh release download $lrel.tag_name -R ggml-org/llama.cpp -p $lasset.name -O "$o/llama-win-vulkan-x64.zip"
+
           # برنامج Tesseract لويندوز (Apache-2.0) من Chocolatey، مضغوطًا كما يُضمَّن في المُثبِّت
           choco install tesseract -y --no-progress | Out-Null
           $tver = (choco list tesseract --exact --limit-output) -split '\|' | Select-Object -Last 1
@@ -63,6 +69,7 @@ jobs:
               tessdata = "tesseract-ocr/tessdata_fast@$tsha (Apache-2.0)"
               ffmpeg = "BtbN/FFmpeg-Builds@$($rel.tag_name)/$($asset.name) (GPL)"
               tesseract = "chocolatey tesseract $tver (Apache-2.0)"
+              llama = "ggml-org/llama.cpp@$($lrel.tag_name)/$($lasset.name) (MIT)"
             }
             files = $files
           }

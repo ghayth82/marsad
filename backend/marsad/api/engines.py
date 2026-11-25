@@ -40,6 +40,89 @@ def providers(_: User = Depends(use)):
     return [{"key": k, **v} for k, v in PROVIDERS.items()]
 
 
+@router.get("/catalog")
+def engine_catalog(refresh: bool = False, _: User = Depends(use), db: Session = Depends(get_db)):
+    """كل ما يُعرض قبل الاختيار: بطاقات المزوّدين، والنماذج المحلية بمتطلباتها وملاءمتها للجهاز وحالة تنزيلها."""
+    from marsad.engines import local
+    from marsad.engines.info import PROVIDER_INFO
+
+    hw = local.hardware(refresh)
+    active = {e.model: e.id for e in db.scalars(select(Engine).where(Engine.provider == "local"))}
+    models = []
+    for m in local.catalog():
+        models.append({**m, "installed": local.installed(m), "download": local.download_state(m["id"]),
+                       "fit": local.fit(m, hw), "engine_id": active.get(m["id"]), "loaded": local.RUNNER.current == m["id"]})
+    return {"hardware": hw, "providers": PROVIDER_INFO, "local": models}
+
+
+def _local_or_400(fn, *a):
+    from marsad.engines.local import LocalError
+
+    try:
+        return fn(*a)
+    except LocalError as e:
+        raise HTTPException(400, str(e)) from None
+
+
+@router.post("/local/{mid}/download")
+def local_download(mid: str, actor: User = Depends(manage), db: Session = Depends(get_db)):
+    from marsad.engines import local
+
+    st = _local_or_400(local.start_download, mid)
+    record(db, actor, "engine.local_download", "model", mid, None, None)
+    db.commit()
+    return st
+
+
+@router.post("/local/{mid}/cancel")
+def local_cancel(mid: str, _: User = Depends(manage)):
+    from marsad.engines import local
+
+    local.cancel_download(mid)
+    return {"ok": True}
+
+
+@router.delete("/local/{mid}")
+def local_remove(mid: str, actor: User = Depends(manage), db: Session = Depends(get_db)):
+    """يحذف ملف النموذج من القرص (ويبقى في القائمة ليُنزَّل متى شئت). المحرك المرتبط به يُعطَّل."""
+    from marsad.engines import local
+
+    _local_or_400(local.remove, mid)
+    for e in db.scalars(select(Engine).where(Engine.provider == "local", Engine.model == mid)):
+        e.enabled = False
+    record(db, actor, "engine.local_remove", "model", mid, None, None)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/local/{mid}/activate")
+def local_activate(mid: str, actor: User = Depends(manage), db: Session = Depends(get_db)):
+    """يجعل النموذج المنزَّل محركًا يُختار للمهام ويُقارن بغيره (دون مفتاح ولا كلفة)."""
+    from marsad.engines import local
+
+    m = _local_or_400(local.get, mid)
+    if not local.installed(m):
+        raise HTTPException(400, "نزّل النموذج أولًا")
+    e = db.scalar(select(Engine).where(Engine.provider == "local", Engine.model == mid))
+    if not e:
+        e = Engine(name=f"{m['name']} (محلي)", provider="local", model=mid, local=True, price_in=0, price_out=0)
+        db.add(e)
+    e.enabled = True
+    db.flush()
+    record(db, actor, "engine.local_activate", "engine", str(e.id), None, {"model": mid})
+    db.commit()
+    return {"engine_id": e.id}
+
+
+@router.post("/local/unload")
+def local_unload(_: User = Depends(manage)):
+    """يُفرغ الذاكرة من النموذج المحمّل (يُحمَّل من جديد عند أول طلب)."""
+    from marsad.engines import local
+
+    local.RUNNER.stop()
+    return {"ok": True}
+
+
 @router.get("/tasks")
 def tasks(_: User = Depends(use)):
     return [{"key": k, "name": v["name"], "version": v["version"]} for k, v in prompts.PROMPTS.items()] + [

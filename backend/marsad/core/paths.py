@@ -32,6 +32,7 @@ SUBDIRS: dict[str, str] = {
     "logs": "logs",  # سجلات التشغيل
     "uploads": "uploads",  # ملفات يرفعها المستخدم قبل معالجتها
     "tmp": "tmp",  # ملفات مؤقتة تُمسح دوريًا
+    "models": "models",  # النماذج المحلية المجانية (لا تُنسخ احتياطيًا: تُنزَّل من جديد من نسخ غيث)
 }
 BACKUP_SUBDIRS = ("db", "archive")
 DEFAULT_DATA_DIR = "./data"

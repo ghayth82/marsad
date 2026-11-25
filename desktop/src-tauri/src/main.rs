@@ -186,9 +186,9 @@ fn start(l: &Layout, report: &dyn Fn(&str)) -> Result<Running, String> {
     let s = |k: &str| sec[k].as_str().unwrap_or_default().to_string();
     let mode = if l.portable { "portable" } else { "desktop" };
     let server = l.resources.join("marsad-server").join(format!("marsad-server{EXE}"));
-    // أدوات المختبرات المضمَّنة (ffmpeg وTesseract) تسبق PATH الجهاز
+    // الأدوات المضمَّنة (ffmpeg وTesseract والمحرك المحلي llama.cpp) تسبق PATH الجهاز
     let tools = l.resources.join("tools");
-    let mut paths = vec![tools.join("ffmpeg"), tools.join("tesseract")];
+    let mut paths = vec![tools.join("ffmpeg"), tools.join("tesseract"), tools.join("llama")];
     paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default()));
     let path_var = std::env::join_paths(paths).unwrap_or_default();
     let tessdata = tools.join("tesseract").join("tessdata");
