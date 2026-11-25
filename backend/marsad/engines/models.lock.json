@@ -57,6 +57,13 @@
    "mirror": "GhaythMahadin/Qwen3.5-9B-GGUF",
    "source": "unsloth/Qwen3.5-9B-GGUF",
    "sha256": "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8"
+  },
+  "qwen3.6-35b-a3b": {
+   "id": "qwen3.6-35b-a3b",
+   "file": "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+   "mirror": "GhaythMahadin/Qwen3.6-35B-A3B-GGUF",
+   "source": "unsloth/Qwen3.6-35B-A3B-GGUF",
+   "sha256": "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61"
   }
  }
 }

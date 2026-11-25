@@ -53,7 +53,7 @@ def test_local_models_locked_to_ghayth_mirrors():
     eng = BACKEND / "marsad" / "engines"
     cat = {m["id"]: m for m in json.loads((eng / "local_models.json").read_text(encoding="utf-8"))["models"]}
     lock = json.loads((eng / "models.lock.json").read_text(encoding="utf-8"))["models"]
-    assert len(lock) >= 8
+    assert set(lock) == set(cat), set(cat) - set(lock)  # كل نماذج القائمة منسوخة ومقفولة
     for mid, x in lock.items():
         assert mid in cat and x["file"] == cat[mid]["file"] and x["mirror"] == cat[mid]["mirror"]
         assert x["mirror"].startswith("GhaythMahadin/") and re.fullmatch(r"[0-9a-f]{64}", x["sha256"]), mid
