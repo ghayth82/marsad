@@ -1,0 +1,73 @@
+# نسخ النماذج المحلية المجانية (local_models.json) إلى حساب غيث على Hugging Face، مع البصمات.
+# كل نموذج في مهمة مستقلة. الناتج: models.lock.json (مرفق بالتشغيل وبإصدار models-<التاريخ>)
+# يُوضع في backend/marsad/engines/ فيُنزّل البرنامج من النسخ ويتحقق من البصمات.
+# يحتاج السر HF_TOKEN (مفتاح كتابة). يُشغَّل يدويًا: Actions ← mirror-models ← Run workflow.
+
+name: mirror-models
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      ids: ${{ steps.l.outputs.ids }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: l
+        run: echo "ids=$(python3 -c "import json;print(json.dumps([m['id'] for m in json.load(open('backend/marsad/engines/local_models.json'))['models']]))")" >> "$GITHUB_OUTPUT"
+
+  mirror:
+    needs: list
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        id: ${{ fromJson(needs.list.outputs.ids) }}
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_HUB_ENABLE_HF_TRANSFER: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: مساحة العمل على القرص الكبير (/mnt)
+        run: sudo mkdir -p /mnt/w && sudo chown "$USER" /mnt/w && df -h /mnt
+      - run: pip install --quiet "huggingface_hub[hf_transfer]>=0.25"
+      - name: نسخ ${{ matrix.id }}
+        run: python scripts/mirror_model.py "${{ matrix.id }}" /mnt/w "lock-${{ matrix.id }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lock-${{ matrix.id }}
+          path: lock-${{ matrix.id }}.json
+
+  lock:
+    needs: mirror
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+          pattern: lock-*
+          merge-multiple: true
+      - name: دمج البصمات في models.lock.json
+        run: |
+          python3 - <<'PY'
+          import json, glob, datetime
+          parts = [json.load(open(p, encoding="utf-8")) for p in sorted(glob.glob("parts/lock-*.json"))]
+          lock = {"created": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "models": {p["id"]: p for p in parts}}
+          json.dump(lock, open("models.lock.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+          print(json.dumps(lock, ensure_ascii=False, indent=1))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: models-lock
+          path: models.lock.json
+      - run: gh release create "models-$(date +%Y%m%d-%H%M)" models.lock.json --title "بصمات النماذج المحلية" --notes "انسخ models.lock.json إلى backend/marsad/engines/" --prerelease
