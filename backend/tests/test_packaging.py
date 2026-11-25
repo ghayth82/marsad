@@ -29,3 +29,16 @@ def test_seed_list_is_bundled():
     if not (ROOT / "desktop" / "marsad-server.spec").exists():
         pytest.skip("لا ملف بناء")
     assert any(Path(s).name == "seed_sources.json" for s, _ in _spec_datas())
+
+
+def test_installer_deps_are_pinned_to_ghayth_mirror():
+    """المُثبِّت يجلب Tesseract ونماذجه وFFmpeg من نسخ غيث فقط، ببصمات محددة (desktop/deps.lock.json)."""
+    import json
+    import re
+
+    lock = json.loads((ROOT / "desktop" / "deps.lock.json").read_text(encoding="utf-8-sig"))
+    names = {f["name"]: f for f in lock["files"]}
+    for need in ("ara.traineddata", "eng.traineddata", "osd.traineddata", "ffmpeg-win64-gpl.zip", "tesseract-win64.zip"):
+        assert need in names and re.fullmatch(r"[0-9a-f]{64}", names[need]["sha256"]), need
+    wf = (ROOT / ".github" / "workflows" / "desktop.yml").read_text(encoding="utf-8")
+    assert "deps.lock.json" in wf and "tessdata_fast/raw/main" not in wf and "FFmpeg-Builds" not in wf

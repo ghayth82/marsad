@@ -1,0 +1,41 @@
+{
+  "release": "deps-20261125-0914",
+  "created": "2026-11-25T09:14:59Z",
+  "sources": {
+    "tessdata": "tesseract-ocr/tessdata_fast@87416418657359cb625c412a48b6e1d6d41c29bd (Apache-2.0)",
+    "ffmpeg": "BtbN/FFmpeg-Builds@autobuild-2026-11-24-12-41/ffmpeg-N-129267-g9ec5cf1aac-win64-gpl.zip (GPL)",
+    "tesseract": "chocolatey tesseract 5.5.3.20260724 (Apache-2.0)"
+  },
+  "files": [
+    {
+      "name": "ara.traineddata",
+      "sha256": "e3206d3dc87fd50c24a0fb9f01838615911d25168f4e64415244b67d2bb3e729",
+      "bytes": 1432056
+    },
+    {
+      "name": "eng.traineddata",
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "bytes": 4113088
+    },
+    {
+      "name": "ffmpeg-win64-gpl.zip",
+      "sha256": "32cbd8dbacb8ab625f33799a12ca500ba3ef6161a8f9989d158fde9c4d0a71d7",
+      "bytes": 205516415
+    },
+    {
+      "name": "osd.traineddata",
+      "sha256": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff",
+      "bytes": 10562727
+    },
+    {
+      "name": "tessdata-LICENSE.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    {
+      "name": "tesseract-win64.zip",
+      "sha256": "47d005200182ed36baaeab9cb5a414462afd24c076c029589b332c54ee423083",
+      "bytes": 40095811
+    }
+  ]
+}
