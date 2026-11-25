@@ -1,10 +1,11 @@
 {
-  "release": "deps-20261125-0914",
-  "created": "2026-11-25T09:14:59Z",
+  "release": "deps-20261125-1224",
+  "created": "2026-11-25T12:24:44Z",
   "sources": {
     "tessdata": "tesseract-ocr/tessdata_fast@87416418657359cb625c412a48b6e1d6d41c29bd (Apache-2.0)",
     "ffmpeg": "BtbN/FFmpeg-Builds@autobuild-2026-11-24-12-41/ffmpeg-N-129267-g9ec5cf1aac-win64-gpl.zip (GPL)",
-    "tesseract": "chocolatey tesseract 5.5.3.20260724 (Apache-2.0)"
+    "tesseract": "chocolatey tesseract 5.5.3.20260724 (Apache-2.0)",
+    "llama": "ggml-org/llama.cpp@b12722/llama-b12722-bin-win-vulkan-x64.zip (MIT)"
   },
   "files": [
     {
@@ -23,6 +24,11 @@
       "bytes": 205516415
     },
     {
+      "name": "llama-win-vulkan-x64.zip",
+      "sha256": "1241fdbe50964b74bad10b873688fb95aad3504fd7b159f80a59f59fbddb31f8",
+      "bytes": 39096976
+    },
+    {
       "name": "osd.traineddata",
       "sha256": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff",
       "bytes": 10562727
@@ -34,7 +40,7 @@
     },
     {
       "name": "tesseract-win64.zip",
-      "sha256": "47d005200182ed36baaeab9cb5a414462afd24c076c029589b332c54ee423083",
+      "sha256": "ff03b15c8e3fe58a432cad65a0c5e21334e8ea6ae1edb1718b9197ff77d189f7",
       "bytes": 40095811
     }
   ]
