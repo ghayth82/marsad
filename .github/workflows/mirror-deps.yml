@@ -1,0 +1,99 @@
+# نسخ احتياطية من المكوّنات الخارجية التي يضمّها المُثبِّت (نماذج Tesseract العربية وبرنامجه، وFFmpeg)
+# في حساب غيث، بإصدارات مثبّتة وبصمات SHA-256، فلا يتأثر بناء البرنامج إن عدّلها أصحابها أو أوقفوها.
+#
+# - الملفات تُرفع إلى إصدار خاص في هذا المستودع (deps-<التاريخ>) مع ملف deps.lock.json.
+# - نماذج Tesseract تُرفع أيضًا إلى Hugging Face (GhaythMahadin/tesseract-tessdata-fast) إن وُجد السر HF_TOKEN
+#   (مفتاح كتابة من huggingface.co/settings/tokens يضيفه غيث في: Settings ← Secrets and variables ← Actions).
+# - بناء المُثبِّت (desktop.yml) يجلبها من هنا فقط ويتحقق من بصماتها حسب desktop/deps.lock.json.
+#
+# يُشغَّل يدويًا: Actions ← mirror-deps ← Run workflow. تشغيله لا يغيّر شيئًا في المُثبِّت حتى يُحدَّث deps.lock.json.
+
+name: mirror-deps
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: جلب المكوّنات من مصادرها الأصلية بإصدارات محددة
+        shell: pwsh
+        run: |
+          $o = "$env:RUNNER_TEMP/deps"; New-Item -ItemType Directory -Force $o | Out-Null
+
+          # نماذج Tesseract (Apache-2.0): من آخر إيداع في tessdata_fast، مثبّتًا برقم الإيداع
+          $tsha = gh api repos/tesseract-ocr/tessdata_fast/commits/main -q .sha
+          foreach ($l in 'ara','eng','osd') {
+            Invoke-WebRequest "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/$tsha/$l.traineddata" -OutFile "$o/$l.traineddata"
+          }
+          Invoke-WebRequest "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/$tsha/LICENSE" -OutFile "$o/tessdata-LICENSE.txt"
+
+          # FFmpeg (GPL): آخر بناء مؤرّخ من BtbN، باسم إصداره الثابت لا «latest»
+          $rel = gh api "repos/BtbN/FFmpeg-Builds/releases?per_page=20" | ConvertFrom-Json |
+                 Where-Object { $_.tag_name -like 'autobuild-*' } | Select-Object -First 1
+          $asset = $rel.assets | Where-Object { $_.name -match '^ffmpeg-N-.*-win64-gpl\.zip$' } | Select-Object -First 1
+          if (-not $asset) { throw "لم يُعثر على بناء FFmpeg مناسب في $($rel.tag_name)" }
+          gh release download $rel.tag_name -R BtbN/FFmpeg-Builds -p $asset.name -O "$o/ffmpeg-win64-gpl.zip"
+
+          # برنامج Tesseract لويندوز (Apache-2.0) من Chocolatey، مضغوطًا كما يُضمَّن في المُثبِّت
+          choco install tesseract -y --no-progress | Out-Null
+          $tver = (choco list tesseract --exact --limit-output) -split '\|' | Select-Object -Last 1
+          $ts = "C:/Program Files/Tesseract-OCR"
+          $tmp = "$env:RUNNER_TEMP/tess"; New-Item -ItemType Directory -Force $tmp | Out-Null
+          Copy-Item "$ts/*.exe", "$ts/*.dll" $tmp
+          Compress-Archive "$tmp/*" "$o/tesseract-win64.zip"
+
+          $files = Get-ChildItem $o -File | ForEach-Object {
+            [ordered]@{ name = $_.Name; sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(); bytes = $_.Length }
+          }
+          $tag = "deps-$(Get-Date -Format yyyyMMdd-HHmm)"
+          $lock = [ordered]@{
+            release = $tag
+            created = (Get-Date).ToUniversalTime().ToString("s") + "Z"
+            sources = [ordered]@{
+              tessdata = "tesseract-ocr/tessdata_fast@$tsha (Apache-2.0)"
+              ffmpeg = "BtbN/FFmpeg-Builds@$($rel.tag_name)/$($asset.name) (GPL)"
+              tesseract = "chocolatey tesseract $tver (Apache-2.0)"
+            }
+            files = $files
+          }
+          $lock | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 "$o/deps.lock.json"
+          Get-Content "$o/deps.lock.json"
+          "TAG=$tag" | Out-File -Append $env:GITHUB_ENV
+          "TSHA=$tsha" | Out-File -Append $env:GITHUB_ENV
+
+      - name: رفعها إلى إصدار خاص في هذا المستودع
+        shell: pwsh
+        run: |
+          $o = "$env:RUNNER_TEMP/deps"
+          gh release create $env:TAG (Get-ChildItem $o -File).FullName --title "نسخ المكوّنات الخارجية $env:TAG" `
+            --notes "نسخ احتياطية للمُثبِّت. البصمات والمصادر في deps.lock.json. لا تُحذف ما دام deps.lock.json في المستودع يشير إليها." --prerelease
+
+      - name: نسخ نماذج Tesseract إلى Hugging Face (إن وُجد HF_TOKEN)
+        if: env.HF_TOKEN != ''
+        shell: pwsh
+        run: |
+          pip install --quiet "huggingface_hub>=0.25"
+          $o = "$env:RUNNER_TEMP/deps"
+          @"
+          ---
+          license: apache-2.0
+          language: [ar, en]
+          tags: [ocr, tesseract]
+          ---
+          # Tesseract tessdata_fast (ara, eng, osd)
+
+          نسخة احتياطية من نماذج Tesseract للتعرّف على النص العربي والإنجليزي، يستعملها «مرصد التحقق».
+          المصدر: https://github.com/tesseract-ocr/tessdata_fast/tree/$env:TSHA (الترخيص Apache-2.0، مرفق في LICENSE).
+          البصمات في deps.lock.json.
+          "@ | Set-Content -Encoding utf8 "$o/README.md"
+          python scripts/mirror_hf.py $o
