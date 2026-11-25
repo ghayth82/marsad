@@ -69,6 +69,23 @@ _META_KEYS = ("article:published_time", "og:published_time", "datepublished", "p
               "publish-date", "dc.date", "dc.date.issued", "sailthru.date", "parsely-pub-date", "date", "article.published")
 
 
+TZ_LABEL = {  # اسم المنطقة كما يُقرأ: «21:45 بتوقيت مصر»
+    "Asia/Amman": "الأردن", "Asia/Riyadh": "السعودية", "Asia/Qatar": "قطر", "Asia/Kuwait": "الكويت",
+    "Asia/Bahrain": "البحرين", "Asia/Baghdad": "العراق", "Asia/Aden": "اليمن", "Asia/Dubai": "الإمارات",
+    "Asia/Muscat": "عُمان", "Africa/Cairo": "مصر", "Asia/Beirut": "لبنان", "Asia/Damascus": "سوريا",
+    "Asia/Hebron": "فلسطين", "Europe/Istanbul": "تركيا", "Africa/Casablanca": "المغرب", "Africa/Algiers": "الجزائر",
+    "Africa/Tunis": "تونس", "Africa/Tripoli": "ليبيا", "Africa/Khartoum": "السودان", "Europe/London": "لندن",
+    "Europe/Paris": "باريس", "Europe/Berlin": "برلين", "Europe/Moscow": "موسكو", "America/New_York": "نيويورك",
+}
+
+
+def tz_info(country: str) -> dict:
+    """منطقة الجهة الزمنية للعرض: الاسم المعياري، واسمها بالعربية، وهل هي مفترضة لأن البلد غير مسجّل."""
+    c = (country or "").strip()
+    name = COUNTRY_TZ.get(c.lower()) or COUNTRY_TZ.get(c)
+    return {"tz": name or DEFAULT_TZ, "tz_label": TZ_LABEL.get(name or DEFAULT_TZ, c or "الأردن"), "tz_assumed": not name}
+
+
 def tz_for(country: str):
     from zoneinfo import ZoneInfo
 
@@ -188,8 +205,9 @@ def from_page(raw: bytes | str, title: str = "", country: str = "", now: datetim
 PUBTIME_REV = 2  # يرتفع كلما تحسّن استخراج وقت النشر، فيُعاد استخراجه من الصفحات المؤرشفة مرة واحدة
 
 
-def refresh_from_archive(db) -> dict:
-    """للمواد المحفوظة دون ساعة نشر: يُقرأ الوقت من نسختها المؤرشفة على الجهاز، دون طلب الموقع من جديد."""
+def refresh_from_archive(db, outlet_id: int | None = None, recheck_text: bool = False) -> dict:
+    """للمواد المحفوظة دون ساعة نشر: يُقرأ الوقت من نسختها المؤرشفة على الجهاز، دون طلب الموقع من جديد.
+    recheck_text: يُعاد حساب الأوقات المقروءة من النص الظاهر (بعد تغيير بلد الجهة وتوقيتها)."""
     import gzip
 
     from sqlalchemy import select
@@ -202,8 +220,12 @@ def refresh_from_archive(db) -> dict:
 
     countries = {o.id: o.country for o in db.scalars(select(Outlet))}
     root, fixed, seen = ensure_storage().archive, 0, 0
-    for it in db.scalars(select(Item).where(Item.source_id.is_not(None))):
-        if it.published_at and not published_date_only(it):
+    q = select(Item).where(Item.source_id.is_not(None))
+    if outlet_id:
+        q = q.where(Item.outlet_id == outlet_id)
+    for it in db.scalars(q):
+        from_text = (it.meta or {}).get("published_source") == "page_text"
+        if it.published_at and not published_date_only(it) and not (recheck_text and from_text):
             continue
         v = next((x for x in it.versions if x.archive_path), None)
         if not v or not (root / v.archive_path).exists():

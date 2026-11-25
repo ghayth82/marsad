@@ -185,6 +185,13 @@ def first_time(i: Item) -> tuple[datetime, str]:
 ATTRIB = re.compile(r"(نقلا عن|نقلًا عن|وفقا ل|وفقًا ل|حسب|بحسب|ذكرت|ذكر موقع|اوردت|أوردت|افادت|أفادت|قالت صحيفه|قالت وكاله|عن وكاله)", re.I)
 
 
+def _tz_of(outlet) -> dict:
+    from marsad.monitor.pubtime import tz_info
+
+    t = tz_info(outlet.country if outlet else "")
+    return {"published_tz": t["tz"], "published_tz_label": t["tz_label"], "published_tz_assumed": t["tz_assumed"]}
+
+
 def published_date_only_(i: Item) -> bool:
     from marsad.monitor.service import published_date_only
 
@@ -199,7 +206,7 @@ def story_view(db: Session, story: Story) -> dict:
         t, basis = first_time(i)
         timeline.append({"item_id": i.id, "title": i.title, "outlet": outlets[i.outlet_id].name, "url": i.url,
                          "time": t.isoformat(), "basis": basis, "published_at": i.published_at.isoformat() if i.published_at else None,
-                         "published_date_only": published_date_only_(i),
+                         "published_date_only": published_date_only_(i), **_tz_of(outlets[i.outlet_id]),
                          "captured_at": i.captured_at.isoformat(), "archive_sha256": i.versions[0].archive_sha256 if i.versions else "",
                          "status": i.status})
         if idx == 0:

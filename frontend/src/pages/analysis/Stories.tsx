@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { useCan } from "../../session";
 
 type S = { id: number; title: string; item_count: number; source_count: number; updated_at: string };
-type TL = { item_id: number; title: string; outlet: string; url: string; time: string; basis: string; published_at: string | null; published_date_only?: boolean; captured_at: string; archive_sha256: string; status: string };
+type TL = { item_id: number; title: string; outlet: string; url: string; time: string; basis: string; published_at: string | null; published_date_only?: boolean; captured_at: string; published_tz?: string; published_tz_label?: string; published_tz_assumed?: boolean; archive_sha256: string; status: string };
 type Rel = { item_id: number; outlet: string; kind: string; from_outlet: string | null; similarity: number; adds: string[] };
 type View = { story: S & { locked: boolean }; first: TL | null; timeline: TL[]; relations: Rel[];
   comparison: { numbers: { unit: string; values: { value: string; outlets: string[] }[]; agreed: boolean }[];
@@ -81,7 +81,7 @@ function StoryPage() {
           {v.first && (
             <div className="msg ok">
               <b>أول ناشر: {v.first.outlet}</b> · {fmt(v.first.time)} ({v.first.basis})
-              <br /><span className="mu">رُصدت {fmt(v.first.captured_at)}{v.first.published_at ? ` · المعلن ${fmtPublished(v.first.published_at, v.first.published_date_only)}` : ""}{v.first.archive_sha256 && ` · بصمة النسخة المؤرشفة ${v.first.archive_sha256.slice(0, 12)}…`}</span>
+              <br /><span className="mu">رُصدت {fmt(v.first.captured_at)}{v.first.published_at ? ` · المعلن ${fmtPublished(v.first.published_at, v.first.published_date_only, v.first)}` : ""}{v.first.archive_sha256 && ` · بصمة النسخة المؤرشفة ${v.first.archive_sha256.slice(0, 12)}…`}</span>
             </div>
           )}
           {msg && (
@@ -103,7 +103,7 @@ function StoryPage() {
             <Fragment key={t.item_id}>
             <div className={`row${reader.id === t.item_id ? " on" : ""}`}>
               <span className="pill p-n">{k + 1}</span>
-              <span className="f"><b>{t.outlet}</b> · {fmt(t.time)} <span className="mu">({t.basis})</span><br />
+              <span className="f"><b>{t.outlet}</b> · {t.basis.startsWith("وقت النشر") ? fmtPublished(t.time, false, t, true) : fmt(t.time)} <span className="mu">({t.basis})</span><br />
                 <button className="linkish" onClick={() => reader.open(t.item_id)} title="اقرأ المادة في لوحة جانبية">{t.title}</button>
                 {" "}<a href={t.url} target="_blank" rel="noreferrer noopener" className="mu" title="افتح الخبر في موقعه">↗</a>
                 {rel[t.item_id]?.adds.length ? <><br /><span className="mu">أضاف: {rel[t.item_id].adds[0].slice(0, 140)}…</span></> : null}</span>

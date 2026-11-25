@@ -117,3 +117,45 @@ def test_refresh_from_archive_fixes_old_items(admin):
     r = admin.get(f"/api/items/{it.id}").json()
     assert r["published_date_only"] is False and r["published_source"] == "النص الظاهر في صفحة الخبر"
     db.close()
+
+
+def test_tz_info_labels():
+    from marsad.monitor.pubtime import tz_info
+
+    assert tz_info("مصر") == {"tz": "Africa/Cairo", "tz_label": "مصر", "tz_assumed": False}
+    assert tz_info("الأردن")["tz_label"] == "الأردن"
+    assert tz_info("") == {"tz": "Asia/Amman", "tz_label": "الأردن", "tz_assumed": True}
+    assert tz_info("دولي")["tz_assumed"] is True
+
+
+def test_changing_outlet_country_recomputes_text_times(admin):
+    from datetime import datetime as dt
+
+    from marsad.db import get_db
+    from marsad.models.monitoring import Item, ItemVersion, Outlet, Source
+    from marsad.monitor.service import archive_html
+
+    db = next(get_db())
+    o = Outlet(name="موقع مصري", country="")
+    db.add(o)
+    db.flush()
+    s = Source(outlet_id=o.id, url="https://eg.example/", kind="page", read_url="https://eg.example/")
+    db.add(s)
+    db.flush()
+    cap = dt(2026, 11, 24, 19, 30, tzinfo=timezone.utc)
+    rel, sha = archive_html(page(under_title="24 نوفمبر 2026 21:15").encode(), cap)
+    it = Item(source_id=s.id, outlet_id=o.id, url="https://eg.example/1", title="وثيقة استخبارية عراقية تكشف استمرار تهريب النفط",
+              text="", captured_at=cap, published_at=dt(2026, 11, 24, 18, 15, tzinfo=timezone.utc),  # 21:15 بتوقيت عمّان
+              content_hash="x", version=1, meta={"published_source": "page_text"})
+    it.versions.append(ItemVersion(version=1, change="new", title=it.title, text="", content_hash="x", captured_at=cap,
+                                   archive_path=rel, archive_sha256=sha))
+    db.add(it)
+    db.commit()
+    iid, oid = it.id, o.id
+    db.close()
+    assert admin.get(f"/api/items/{iid}").json()["published_tz_assumed"] is True
+    r = admin.put(f"/api/outlets/{oid}", json={"name": "موقع مصري", "country": "مصر"})
+    assert r.status_code == 200
+    j = admin.get(f"/api/items/{iid}").json()
+    assert j["published_tz_label"] == "مصر" and j["published_tz_assumed"] is False
+    assert j["published_at"].startswith("2026-11-24T19:15")  # 21:15 بتوقيت القاهرة

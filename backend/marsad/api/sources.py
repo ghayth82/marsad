@@ -71,12 +71,22 @@ def _pub_src(i: Item) -> str:
     return SOURCE_AR.get(k, "")
 
 
+def _pub_tz(i: Item) -> dict:
+    """«21:45 بتوقيت مصر»: منطقة بلد الجهة لعرض وقت النشر كما يراه قارئ الموقع."""
+    from marsad.monitor.pubtime import tz_info
+
+    o = i.source.outlet if i.source else None
+    t = tz_info(o.country if o else "")
+    return {"published_tz": t["tz"], "published_tz_label": t["tz_label"], "published_tz_assumed": t["tz_assumed"]}
+
+
 def item_out(i: Item, full: bool = False) -> dict:
     d = {"id": i.id, "url": i.url, "title": i.title, "excerpt": i.text[:280], "source_id": i.source_id,
          "outlet_id": i.outlet_id, "source_title": i.source.title, "source_kind": i.source.kind,
          "published_at": _dt(i.published_at), "captured_at": _dt(i.captured_at), "status": i.status,
          "version": i.version, "media": i.media, "author": i.author, "story_id": i.story_id,
-         "published_date_only": mon.published_date_only(i), "published_source": _pub_src(i)}
+         "published_date_only": mon.published_date_only(i), "published_source": _pub_src(i),
+         **_pub_tz(i)}
     if full:
         d["text"] = i.text
         d["meta"] = i.meta
@@ -113,10 +123,15 @@ def create_outlet(body: OutletIn, actor: User = Depends(manage_sources), db: Ses
 @router.put("/outlets/{oid}")
 def update_outlet(oid: int, body: OutletIn, actor: User = Depends(manage_sources), db: Session = Depends(get_db)):
     o = db.get(Outlet, oid) or _404()
+    old_country = o.country
     for k, v in body.model_dump().items():
         setattr(o, k, v)
-    record(db, actor, "outlet.update", "outlet", str(oid), None, body.model_dump())
+    record(db, actor, "outlet.update", "outlet", str(oid), {"country": old_country}, body.model_dump())
     db.commit()
+    if old_country != o.country:  # التوقيت تغيّر: تُعاد قراءة الأوقات الظاهرة في صفحات الجهة من الأرشيف
+        from marsad.monitor.pubtime import refresh_from_archive
+
+        refresh_from_archive(db, outlet_id=oid, recheck_text=True)
     return outlet_out(db, o)
 
 

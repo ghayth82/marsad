@@ -5,6 +5,12 @@ import { useCan } from "../../session";
 type Src = { id: number; url: string; kind: string; kind_ar: string; read_url: string; title: string; tags: string[]; check_minutes: number;
   active: boolean; status: "new" | "ok" | "error" | "paused"; last_checked_at: string | null; last_item_at: string | null; last_error: string; silent: boolean; checking?: boolean };
 type Outlet = { id: number; name: string; kind: string; country: string; website: string; logo_url: string; tags: string[]; items: number; sources: Src[] };
+// بلد الموقع يحدد توقيت وقت النشر الظاهر في صفحاته («21:45 بتوقيت مصر»)
+const COUNTRY_BY_TLD: Record<string, string> = { eg: "مصر", sa: "السعودية", ae: "الإمارات", qa: "قطر", kw: "الكويت", bh: "البحرين", om: "عمان",
+  iq: "العراق", lb: "لبنان", sy: "سوريا", ps: "فلسطين", tr: "تركيا", ma: "المغرب", dz: "الجزائر", tn: "تونس", ly: "ليبيا", sd: "السودان" };
+const COUNTRIES = ["الأردن", "السعودية", "الإمارات", "قطر", "الكويت", "البحرين", "عمان", "العراق", "اليمن", "مصر", "لبنان",
+  "سوريا", "فلسطين", "تركيا", "المغرب", "الجزائر", "تونس", "ليبيا", "السودان", "بريطانيا", "فرنسا", "ألمانيا", "روسيا", "الولايات المتحدة"];
+
 type Disc = { url: string; kind: string; read_url: string; title: string; outlet_name: string; logo_url: string; social: { platform: string; url: string }[]; note?: string };
 
 const STATUS: Record<Src["status"], [string, string]> = { ok: ["p-ok", "يعمل"], error: ["p-bad", "خطأ"], paused: ["p-n", "متوقف"], new: ["p-warn", "بانتظار أول فحص"] };
@@ -52,11 +58,20 @@ export function Sources() {
             <details key={o.id} className="row" style={{ display: "block" }}>
               <summary style={{ cursor: "pointer", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                 <b>{o.name}</b>
-                {o.country && <span className="mu">{o.country}</span>}
+                {o.country ? <span className="mu">{o.country}</span> : <span className="pill p-warn" title="يُفترض توقيت الأردن لوقت النشر">البلد غير محدد</span>}
                 {o.tags.map((t) => <span key={t} className="pill p-n">{t}</span>)}
                 <span className="mu">· {o.items} مادة</span>
                 {o.sources.map((s) => <span key={s.id} className={`pill ${STATUS[s.status][0]}`} title={s.kind_ar}>{s.kind_ar}</span>)}
               </summary>
+              {manage && (
+                <label className="fld" style={{ maxWidth: 360, marginTop: 8 }}>بلد الموقع: يُقرأ وقت النشر الظاهر في صفحاته بتوقيته
+                  <select className="inp" aria-label={`بلد ${o.name}`} value={o.country || ""} onChange={(e) => run(() => api(`/api/outlets/${o.id}`, { method: "PUT", body: { name: o.name, kind: o.kind, country: e.target.value, website: o.website, tags: o.tags } }), `حُفظ بلد «${o.name}»: ${e.target.value || "غير محدد"}.`)}>
+                    <option value="">غير محدد (يُفترض توقيت الأردن)</option>
+                    {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value="دولي">دولي</option>
+                  </select>
+                </label>
+              )}
               <div className="tw" style={{ marginTop: 8 }}>
                 <table>
                   <thead><tr><th>المصدر</th><th>الحالة</th><th>آخر فحص</th><th>آخر مادة</th><th>التواتر</th>{manage && <th></th>}</tr></thead>
@@ -106,6 +121,7 @@ function PasteLink({ onAdded }: { onAdded: (t: string) => void }) {
   const [url, setUrl] = useState("");
   const [d, setD] = useState<Disc | null>(null);
   const [name, setName] = useState("");
+  const [country, setCountry] = useState("الأردن");
   const [tags, setTags] = useState("");
   const [also, setAlso] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -114,14 +130,14 @@ function PasteLink({ onAdded }: { onAdded: (t: string) => void }) {
     e.preventDefault(); setErr(""); setD(null); setBusy(true);
     try {
       const x = await api<Disc>("/api/sources/discover", { method: "POST", body: { url } });
-      setD(x); setName(x.outlet_name); setAlso(x.social.filter((s) => s.platform === "telegram" || s.platform === "youtube").map((s) => s.url));
+      setD(x); setName(x.outlet_name); setCountry(COUNTRY_BY_TLD[new URL(x.url).hostname.split(".").pop() ?? ""] ?? "الأردن"); setAlso(x.social.filter((s) => s.platform === "telegram" || s.platform === "youtube").map((s) => s.url));
     } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
   };
   const add = async () => {
     if (!d) return;
     setErr(""); setBusy(true);
     try {
-      const r = await api<{ also: unknown[]; skipped?: { url: string; reason: string }[] }>("/api/sources", { method: "POST", body: { url: d.url, outlet_name: name, tags: tags.split(/[،,]/).map((t) => t.trim()).filter(Boolean), also } });
+      const r = await api<{ also: unknown[]; skipped?: { url: string; reason: string }[] }>("/api/sources", { method: "POST", body: { url: d.url, outlet_name: name, country, tags: tags.split(/[،,]/).map((t) => t.trim()).filter(Boolean), also } });
       setD(null); setUrl(""); setTags("");
       onAdded(`أُضيف المصدر${r.also.length ? ` و${r.also.length} من صفحاته` : ""}، وبدأ رصده الآن.` +
         (r.skipped?.length ? ` لم تُضف ${r.skipped.length} صفحة: ${r.skipped.map((x) => `${x.url} (${x.reason})`).join("، ")}` : ""));
@@ -144,6 +160,12 @@ function PasteLink({ onAdded }: { onAdded: (t: string) => void }) {
           </div>
           {d.note && <div className="msg warn">{d.note}</div>}
           <label className="fld">اسم الجهة<input className="inp" value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="fld">بلد الموقع (لقراءة وقت النشر بتوقيته)
+            <select className="inp" aria-label="بلد الموقع" value={country} onChange={(e) => setCountry(e.target.value)}>
+              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="دولي">دولي أو غير محدد (يُفترض توقيت الأردن)</option>
+            </select>
+          </label>
           <label className="fld">وسوم (مفصولة بفاصلة)<input className="inp" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="محلي، رسمي" /></label>
           {!!d.social.length && (
             <fieldset style={{ border: "none", padding: 0, margin: 0 }}>

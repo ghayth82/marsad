@@ -4,7 +4,7 @@ import { fmtPublished } from "../../lib/time";
 import { useReader } from "../../components/Reader";
 import { api } from "../../api";
 
-type It = { id: number; url: string; title: string; excerpt: string; source_title: string; source_kind: string; published_at: string | null; published_date_only?: boolean;
+type It = { id: number; url: string; title: string; excerpt: string; source_title: string; source_kind: string; published_at: string | null; published_date_only?: boolean; published_tz?: string; published_tz_label?: string; published_tz_assumed?: boolean;
   captured_at: string; status: "live" | "edited" | "deleted"; version: number; media: { type: string; url: string }[]; author: string };
 type Status = { sources: number; ok: number; error: number; items_24h: number; edited_24h: number; deleted_24h: number; items_total: number };
 
@@ -47,7 +47,7 @@ export function Live() {
           {data?.items.map((i) => (
             <div key={i.id} className={`row clickable${reader.id === i.id ? " on" : ""}`}
               onClick={() => reader.open(i.id)} onKeyDown={(e) => e.key === "Enter" && reader.open(i.id)} tabIndex={0} role="button" aria-pressed={reader.id === i.id}>
-              <span className="f"><b>{i.title || "(دون عنوان)"}</b><br /><span className="mu">{i.source_title} · رُصد {fmt(i.captured_at)}{i.published_at ? ` · نُشر ${fmtPublished(i.published_at, i.published_date_only)}` : ""}</span></span>
+              <span className="f"><b>{i.title || "(دون عنوان)"}</b><br /><span className="mu">{i.source_title} · رُصد {fmt(i.captured_at)}{i.published_at ? ` · نُشر ${fmtPublished(i.published_at, i.published_date_only, i, true)}` : ""}</span></span>
               {i.status === "edited" && <span className="pill p-warn">عُدّل ({i.version - 1})</span>}
               {i.status === "deleted" && <span className="pill p-bad">محذوف</span>}
               {i.media.some((m) => m.type === "video") && <span className="pill p-n">فيديو</span>}
