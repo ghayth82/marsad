@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useRef, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, type Me, type Prefs } from "./api";
 
 type Ctx = {
@@ -12,6 +12,10 @@ type Ctx = {
 };
 
 const SessionCtx = createContext<Ctx | null>(null);
+
+function mergePrefs(base: Prefs, c: Partial<Prefs>): Prefs {
+  return { ...base, ...c, ...(c.appearance ? { appearance: { ...base.appearance, ...c.appearance } } : {}) };
+}
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
@@ -34,11 +38,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
 
+  const seq = useRef(0);
   const savePrefs = useCallback(async (changes: Partial<Prefs>) => {
-    // يظهر التغيير فورًا، ثم يُحفظ على الخادم فيتبع المستخدم إلى أي جهاز
-    setMe((m) => (m ? { ...m, preferences: { ...m.preferences, ...changes } } : m));
+    // يظهر التغيير فورًا، ثم يُحفظ على الخادم فيتبع المستخدم إلى أي جهاز.
+    // يُرسل المتغيّر وحده (الخادم يدمجه، والمظهر يُدمج حقلًا حقلًا)، فتغييران متتاليان سريعان لا يُلغي ثانيهما الأول.
+    setMe((m) => (m ? { ...m, preferences: mergePrefs(m.preferences, changes) } : m));
+    const mine = ++seq.current;
     const prefs = await api<Prefs>("/api/me/preferences", { method: "PATCH", body: changes });
-    setMe((m) => (m ? { ...m, preferences: prefs } : m));
+    if (mine === seq.current) setMe((m) => (m ? { ...m, preferences: prefs } : m));  // ردّ أقدم لا يغطي اختيارًا أحدث
   }, []);
 
   const logout = useCallback(async () => {

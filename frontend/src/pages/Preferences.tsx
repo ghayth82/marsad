@@ -23,7 +23,7 @@ export function Preferences() {
     catch (e) { setMsg({ kind: "err", text: (e as Error).message }); }
   };
   const a = { ...DEFAULT_APPEARANCE, ...(p.appearance ?? {}) };
-  const ap = (c: Partial<Appearance>) => save({ appearance: { ...a, ...c }, ...(p.pattern !== "c" ? { pattern: "c" as const } : {}) });
+  const ap = (c: Partial<Appearance>) => save({ appearance: c as Appearance, ...(p.pattern !== "c" ? { pattern: "c" as const } : {}) });
   const reset = async () => {
     const prefs = await api<Prefs>("/api/me/preferences", { method: "DELETE" });
     setMe({ ...me, preferences: prefs });
