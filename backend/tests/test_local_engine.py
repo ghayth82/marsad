@@ -29,9 +29,9 @@ def fake_mirror(monkeypatch):
     """نسخة غيث على Hugging Face بديلة: ملف صغير وبصمته، دون إنترنت."""
     served = {"data": DATA}
     lock = {"qwen3.5-2b": {"id": "qwen3.5-2b", "file": "Qwen3.5-2B-Q4_K_M.gguf", "mirror": "GhaythMahadin/Qwen3.5-2B-GGUF",
-                           "sha256": hashlib.sha256(DATA).hexdigest(), "bytes": len(DATA)},
+                           "sha256": hashlib.sha256(DATA).hexdigest()},
             "qwen3.5-4b": {"id": "qwen3.5-4b", "file": "Qwen3.5-4B-Q4_K_M.gguf", "mirror": "GhaythMahadin/Qwen3.5-4B-GGUF",
-                           "sha256": hashlib.sha256(DATA).hexdigest(), "bytes": len(DATA)}}
+                           "sha256": hashlib.sha256(DATA).hexdigest()}}
     monkeypatch.setattr(local, "lock_data", lambda: lock)
 
     class Resp:
@@ -40,6 +40,8 @@ def fake_mirror(monkeypatch):
         def __init__(self, start):
             self.start = start
             self.status_code = 206 if start else 200
+            n = len(served["data"])
+            self.headers = {"content-range": f"bytes {start}-{n - 1}/{n}"} if start else {"content-length": str(n)}
 
         def iter_bytes(self, n):
             d = served["data"][self.start:]

@@ -43,3 +43,17 @@ def test_installer_deps_are_pinned_to_ghayth_mirror():
         assert need in names and re.fullmatch(r"[0-9a-f]{64}", names[need]["sha256"]), need
     wf = (ROOT / ".github" / "workflows" / "desktop.yml").read_text(encoding="utf-8")
     assert "deps.lock.json" in wf and "tessdata_fast/raw/main" not in wf and "FFmpeg-Builds" not in wf
+
+
+def test_local_models_locked_to_ghayth_mirrors():
+    """كل نموذج مقفول يُنزَّل من نسخة غيث، ببصمة SHA-256، ومطابق لقائمة النماذج."""
+    import json
+    import re
+
+    eng = BACKEND / "marsad" / "engines"
+    cat = {m["id"]: m for m in json.loads((eng / "local_models.json").read_text(encoding="utf-8"))["models"]}
+    lock = json.loads((eng / "models.lock.json").read_text(encoding="utf-8"))["models"]
+    assert len(lock) >= 8
+    for mid, x in lock.items():
+        assert mid in cat and x["file"] == cat[mid]["file"] and x["mirror"] == cat[mid]["mirror"]
+        assert x["mirror"].startswith("GhaythMahadin/") and re.fullmatch(r"[0-9a-f]{64}", x["sha256"]), mid

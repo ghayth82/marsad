@@ -170,7 +170,8 @@ def start_download(mid: str) -> dict:
     with _DL_LOCK:
         if _DL.get(mid, {}).get("status") in ("downloading", "verifying"):
             return download_state(mid)
-        _DL[mid] = {"status": "downloading", "done": 0, "total": lk["bytes"], "error": "", "cancel": False}
+        total = lk.get("bytes") or int(m["size_gb"] * 2**30)  # تقدير حتى يرد الخادم بالحجم الدقيق
+        _DL[mid] = {"status": "downloading", "done": 0, "total": total, "error": "", "cancel": False}
     threading.Thread(target=_download, args=(m, lk), name=f"dl-{mid}", daemon=True).start()
     return download_state(mid)
 
@@ -189,7 +190,7 @@ def _download(m: dict, lk: dict) -> None:
         for attempt in range(5):  # يُستأنف من حيث توقف إن انقطع الاتصال
             have = part.stat().st_size if part.exists() else 0
             st["done"] = have
-            if have >= lk["bytes"]:
+            if lk.get("bytes") and have >= lk["bytes"]:
                 break
             try:
                 with httpx.stream("GET", url, headers={"Range": f"bytes={have}-"} if have else {},
@@ -198,7 +199,10 @@ def _download(m: dict, lk: dict) -> None:
                         raise LocalError(f"تعذّر التنزيل من النسخة ({r.status_code})")
                     if r.status_code == 200 and have:
                         part.unlink()  # الخادم لا يدعم الاستئناف: نبدأ من جديد
-                        st["done"] = 0
+                        st["done"] = have = 0
+                    size = r.headers.get("content-range", "").rpartition("/")[2] if r.status_code == 206 else r.headers.get("content-length", "")
+                    if size.isdigit():
+                        st["total"] = int(size) + (0 if r.status_code == 206 else have)
                     with part.open("ab") as f:
                         for chunk in r.iter_bytes(1 << 20):
                             if st["cancel"]:
