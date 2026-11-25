@@ -7,6 +7,11 @@ name: mirror-models
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "معرّف نموذج واحد (فارغ = كل النماذج)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -19,11 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: l
-        run: echo "ids=$(python3 -c "import json;print(json.dumps([m['id'] for m in json.load(open('backend/marsad/engines/local_models.json'))['models']]))")" >> "$GITHUB_OUTPUT"
+        env:
+          ONLY: ${{ inputs.only }}
+        run: echo "ids=$(python3 -c "import json,os;o=os.environ.get('ONLY','');print(json.dumps([m['id'] for m in json.load(open('backend/marsad/engines/local_models.json'))['models'] if not o or m['id']==o]))")" >> "$GITHUB_OUTPUT"
 
   mirror:
     needs: list
     runs-on: ubuntu-latest
+    timeout-minutes: 150  # تنزيل عالق يفشل ولا يبقى ساعات
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -32,6 +40,7 @@ jobs:
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       HF_HUB_ENABLE_HF_TRANSFER: "1"
+      HF_HUB_DOWNLOAD_TIMEOUT: "60"
     steps:
       - uses: actions/checkout@v4
       - name: مساحة العمل على القرص الكبير (/mnt)
