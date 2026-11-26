@@ -18,7 +18,7 @@ export function MediaLab() {
   return (
     <div className="cols">
       <div className="grow">
-        {!m && <UploadForm accept="image/*,video/*" label="افحص صورة أو فيديو" onDone={(x) => nav(`/media-lab/${x.id}`)} />}
+        {!m && <UploadForm accept="image/*,video/*" label="افحص صورة أو فيديو" sample onDone={(x) => nav(`/media-lab/${x.id}`)} />}
         {m && (
           <>
             <section className="card">
@@ -84,7 +84,7 @@ export function MediaLab() {
         <SunCard />
         <section className="card">
           <h2>آخر الفحوص</h2>
-          {!recent.length && <span className="mu">لا فحوص بعد.</span>}
+          {!recent.length && <span className="mu">لا فحوص بعد. ارفع ملفًا، أو اضغط «جرّب بمثال» لترى كيف تظهر النتائج.</span>}
           {recent.map((r) => (
             <div key={r.id} className="row">
               <span className="f">{r.filename || r.kind}<br /><span className="mu">{fmt(r.seen_at)}</span></span>
@@ -114,14 +114,20 @@ function SunCard() {
   return (
     <form className="card" onSubmit={go} style={{ display: "flex", flexDirection: "column", gap: 6 }} aria-label="حاسبة الشمس">
       <h2>الشمس والظل</h2>
+      <span className="mu">أين يجب أن يقع الظل في هذا المكان والوقت؟ قارن النتيجة بالظل الظاهر في الصورة.</span>
       <div style={{ display: "flex", gap: 6 }}>
-        <input className="inp" dir="ltr" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} aria-label="خط العرض" />
-        <input className="inp" dir="ltr" value={f.lon} onChange={(e) => setF({ ...f, lon: e.target.value })} aria-label="خط الطول" />
+        <label className="fld" style={{ flex: 1 }} data-hint="خط العرض للمكان. انسخه من خرائط Google: اضغط المكان بالزر الأيمن فيظهر رقمان، الأول خط العرض. المثال: عمّان.">خط العرض
+          <input className="inp" dir="ltr" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} aria-label="خط العرض" placeholder="31.95" /></label>
+        <label className="fld" style={{ flex: 1 }} data-hint="خط الطول للمكان: الرقم الثاني في خرائط Google. المثال: عمّان.">خط الطول
+          <input className="inp" dir="ltr" value={f.lon} onChange={(e) => setF({ ...f, lon: e.target.value })} aria-label="خط الطول" placeholder="35.93" /></label>
       </div>
-      <input className="inp" type="datetime-local" value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} aria-label="وقت الصورة المدّعى" />
+      <label className="fld" data-hint="اليوم والساعة التي يُقال إن الصورة التُقطت فيها.">وقت الصورة المدّعى
+        <input className="inp" type="datetime-local" value={f.when} onChange={(e) => setF({ ...f, when: e.target.value })} aria-label="وقت الصورة المدّعى" /></label>
       <div style={{ display: "flex", gap: 6 }}>
-        <input className="inp" value={f.az} onChange={(e) => setF({ ...f, az: e.target.value })} placeholder="اتجاه الظل°" aria-label="اتجاه الظل" />
-        <input className="inp" value={f.ratio} onChange={(e) => setF({ ...f, ratio: e.target.value })} placeholder="الظل÷الطول" aria-label="نسبة الظل" />
+        <label className="fld" style={{ flex: 1 }} data-hint="اختياري. اتجاه الظل في الصورة بالدرجات من الشمال: 0 شمال، 90 شرق، 180 جنوب، 270 غرب.">اتجاه الظل في الصورة (اختياري)
+          <input className="inp" value={f.az} onChange={(e) => setF({ ...f, az: e.target.value })} placeholder="مثال: 90 = شرق" aria-label="اتجاه الظل" /></label>
+        <label className="fld" style={{ flex: 1 }} data-hint="اختياري. طول الظل مقسومًا على طول الشيء. ظل بطول الشخص = 1، وضعف طوله = 2.">طول الظل ÷ طول الشيء (اختياري)
+          <input className="inp" value={f.ratio} onChange={(e) => setF({ ...f, ratio: e.target.value })} placeholder="مثال: 2" aria-label="نسبة الظل" /></label>
       </div>
       <button className="btn" disabled={!f.when}>احسب</button>
       {err && <div className="msg err">{err}</div>}

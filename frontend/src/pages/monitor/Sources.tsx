@@ -148,7 +148,7 @@ function PasteLink({ onAdded }: { onAdded: (t: string) => void }) {
       <h2>الصق الرابط</h2>
       <form onSubmit={check} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input className="inp" style={{ flex: "1 1 320px" }} dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} aria-label="رابط المصدر"
-          placeholder="https://… موقع، قناة تيليغرام، قناة يوتيوب، أو gdelt:استعلام" />
+          placeholder="الصق هنا رابط موقع إخباري أو قناة تيليغرام أو يوتيوب" />
         <button className="btn pri" disabled={!url.trim() || busy}>{busy && !d ? "جارٍ الفحص…" : "افحص الرابط"}</button>
       </form>
       {err && <div className="msg err">{err}</div>}
@@ -196,15 +196,15 @@ function ImportExport({ onDone }: { onDone: (t: string) => void }) {
       <h2>استيراد وتصدير</h2>
       <button className="btn" disabled={busy} onClick={() => go(() => api("/api/sources/seed", { method: "POST" }))}>إضافة القائمة المقترحة (50 مصدرًا)</button>
       <span className="mu">أردنية وعربية ودولية ومنصات تحقق وGDELT. تعدّلها أو توقف ما لا تريده.</span>
-      <label className="btn" style={{ cursor: "pointer" }}>استيراد ملف CSV
+      <label className="btn adv" style={{ cursor: "pointer" }}>استيراد ملف CSV
         <input type="file" accept=".csv,text/csv" className="sr" onChange={async (e) => {
           const f = e.target.files?.[0]; if (!f) return;
           const text = await f.text();
           go(() => api("/api/sources/import", { method: "POST", body: { csv: text, discover: false } }));
         }} />
       </label>
-      <a className="btn" href="/api/sources/export">تصدير القائمة CSV</a>
-      <span className="mu">أعمدة CSV: outlet، url، kind، tags (الوسوم مفصولة بـ |).</span>
+      <a className="btn adv" href="/api/sources/export">تصدير القائمة CSV</a>
+      <span className="mu adv">أعمدة CSV: outlet، url، kind، tags (الوسوم مفصولة بـ |).</span>
       {err && <div className="msg err">{err}</div>}
     </section>
   );

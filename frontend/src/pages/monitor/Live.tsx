@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { fmtPublished } from "../../lib/time";
 import { useReader } from "../../components/Reader";
 import { api } from "../../api";
@@ -43,7 +43,7 @@ export function Live() {
         </form>
         <section className="card">
           <h2>تدفّق المواد</h2>
-          {data && !data.items.length && <span className="mu">لا مواد بعد. أضف مصادر من شاشة المصادر.</span>}
+          {data && !data.items.length && <div className="empty"><span>لا أخبار بعد. الأخبار تأتي من المصادر التي تضيفها.</span><Link className="btn pri" to="/sources">أضف مصدرًا</Link></div>}
           {data?.items.map((i) => (
             <div key={i.id} className={`row clickable${reader.id === i.id ? " on" : ""}`}
               onClick={() => reader.open(i.id)} onKeyDown={(e) => e.key === "Enter" && reader.open(i.id)} tabIndex={0} role="button" aria-pressed={reader.id === i.id}>

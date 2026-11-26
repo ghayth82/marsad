@@ -108,7 +108,7 @@ def main() -> int:
         page.screenshot(path=SHOTS / "12-engines-library.png", full_page=True)
         page.get_by_role("button", name="أضف هذا المحرك").first.click()
         expect(page).to_have_url(re.compile(r"/engines/settings\?preset=claude"))
-        expect(page.get_by_text("صفحة المفتاح ↗")).to_be_visible()  # بطاقة المزوّد فوق نموذج الإضافة
+        expect(page.get_by_role("link", name="صفحة المفتاح ↗")).to_have_count(1)  # بطاقة المزوّد فوق نموذج الإضافة
         browser.close()
     print("E2E المحركات: كل الخطوات نجحت")
     return 0

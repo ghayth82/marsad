@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { visibleSections } from "./nav";
+import { navSections, visibleSections } from "./nav";
 import type { Access } from "./api";
 
 const role = (key: string, permissions: string[], active = true) => ({ key, name_ar: key, expires_at: null, active, permissions });
@@ -8,6 +8,7 @@ describe("الأقسام حسب الأدوار", () => {
   it("المتدرّب يرى الرئيسية والتدريب والدليل فقط", () => {
     const a: Access = { roles: [role("trainee", ["training.participate"])], overrides: [], effective: ["training.participate"] };
     expect(visibleSections(a, null).map((s) => s.path)).toEqual(["/", "/training", "/help"]);
+    expect(navSections(a, null).map((s) => s.ar)).toEqual(["الرئيسية", "التدريب", "الدليل"]);
   });
 
   it("دوران معًا يجمعان الأقسام، و«عرض كـ» يركّز على دور واحد", () => {
@@ -25,6 +26,14 @@ describe("الأقسام حسب الأدوار", () => {
   it("الصلاحية المسحوبة فرديًا لا تعود عبر «عرض كـ»", () => {
     const a: Access = { roles: [role("researcher", ["ratings.view", "data.export"])], overrides: [], effective: ["data.export"] };
     expect(visibleSections(a, "researcher").map((s) => s.path)).not.toContain("/ratings");
+  });
+
+  it("الشائعات والادّعاء بند واحد في القائمة، وبطاقة الادّعاء تبقى مسموحة", () => {
+    const a: Access = { roles: [], overrides: [], effective: ["claims.create", "monitor.view"] };
+    expect(visibleSections(a, null).map((s) => s.path)).toContain("/claims");
+    const labels = navSections(a, null).map((s) => s.ar);
+    expect(labels).toContain("الادّعاءات والشائعات");
+    expect(labels).not.toContain("بطاقة الادّعاء");
   });
 
   it("الإدارة تظهر لمن يملك إدارة المستخدمين وحدها", () => {

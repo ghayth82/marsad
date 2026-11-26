@@ -28,7 +28,7 @@ export function Frame({ prefs, children }: { prefs: Pick<Prefs, "pattern" | "the
   const dark = prefs.theme === "dark" || (prefs.theme === "system" && (systemDark || prefs.pattern === "a"));
   return (
     <div className="app" data-pattern="c" data-dark={dark ? "1" : "0"} data-accent={a.accent} data-contrast={a.contrast ? "1" : "0"}
-      data-density={a.density}
+      data-density={a.density} data-mode={a.mode} data-hints={a.hints ? "1" : "0"}
       style={{
         ["--scale" as string]: prefs.font_scale, ["--font" as string]: FONTS[a.font] ?? FONTS.noto,
         ["--read-scale" as string]: a.read_scale, ["--read-leading" as string]: LEADING[a.leading], ["--read-width" as string]: WIDTH[a.read_width],

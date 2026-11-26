@@ -20,7 +20,7 @@ function DraftList() {
   return (
     <section className="card">
       <h2>المسودات</h2>
-      {!rows.length && <span className="mu">لا مسودات. افتح قضية واضغط «ابنِ القصة من الأدلة».</span>}
+      {!rows.length && <div className="empty"><span>لا مسودات بعد. المسودة تبدأ من قضية: افتح قضية ثم اضغط «ابنِ القصة من الأدلة».</span><Link className="btn pri" to="/cases">افتح التحقيقات</Link></div>}
       {rows.map((d) => (
         <div key={d.id} className="row"><span className="f"><Link to={`/story-builder/${d.id}`}><b>{d.title}</b></Link><br /><span className="mu" style={{ fontSize: 12 }}>قضية #{d.case_id}: {d.case_title}</span></span>
           <span className={`pill ${d.status === "approved" ? "p-ok" : "p-n"}`}>{d.status === "approved" ? "معتمدة" : "مسودة"}</span></div>

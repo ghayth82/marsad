@@ -20,7 +20,7 @@ export function Admin() {
   return (
     <>
       <nav className="tabs" aria-label="أقسام الإدارة">
-        {tabs.map((t) => <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "")}>{t.label}</NavLink>)}
+        {tabs.map((t) => <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "") + (t.to === "api" ? " adv" : "")}>{t.label}</NavLink>)}
       </nav>
       <Routes>
         <Route index element={<Navigate to={tabs[0].to} replace />} />

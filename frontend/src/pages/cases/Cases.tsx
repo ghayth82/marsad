@@ -42,7 +42,7 @@ function CaseList() {
       <section className="card grow">
         <h2>القضايا</h2>
         <span className="mu" style={{ fontSize: 12 }}>ترى القضايا التي أنت عضو فيها فقط. محتوى كل قضية مشفّر بمفتاح خاص بها.</span>
-        {!rows.length && <span className="mu">لا قضايا بعد.</span>}
+        {!rows.length && <span className="mu">لا قضايا بعد. اكتب عنوان تحقيقك في «قضية جديدة» لتفتح أول ملف.</span>}
         {rows.map((c) => (
           <div key={c.id} className="row">
             <span className="f"><Link to={`/cases/${c.id}`}><b>قضية #{c.id}: {c.title}</b></Link><br />

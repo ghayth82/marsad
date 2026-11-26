@@ -1,5 +1,10 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { visibleSections, SECTIONS } from "../nav";
+import { useEffect, useState } from "react";
+import { DEFAULT_APPEARANCE, type Prefs } from "../api";
+import { GROUPS, navSections, SECTIONS } from "../nav";
+import { HintLayer } from "../hints/HintLayer";
+import { PAGE_INTRO } from "../hints/data";
+import { Tour } from "./Tour";
 import { useSession } from "../session";
 import { Frame } from "./Frame";
 import { HistoryNav } from "./HistoryNav";
@@ -9,10 +14,18 @@ export function Shell() {
   const { me, savePrefs } = useSession();
   const loc = useLocation();
   const nav = useNavigate();
+  const [tour, setTour] = useState(false);
+  const welcome = new URLSearchParams(loc.search).has("welcome") || new URLSearchParams(loc.search).has("tour");
+  const tourDone = me?.preferences.tour_done;
+  // الجولة تُفتح وحدها بعد إنشاء الحساب أو قبول الدعوة، أو بطلبها (?tour=1)
+  useEffect(() => { if (welcome && (!tourDone || new URLSearchParams(loc.search).has("tour"))) setTour(true); }, [welcome, tourDone]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!me) return null;
   const p = me.preferences;
   const en = p.language === "en";
-  const sections = visibleSections(me.access, p.view_as_role);
+  const sections = navSections(me.access, p.view_as_role);
+  const ap = { ...DEFAULT_APPEARANCE, ...(p.appearance ?? {}) };
+  const setAp = (c: Partial<typeof ap>) => savePrefs({ appearance: c } as unknown as Partial<Prefs>);
+  const intro = PAGE_INTRO.find(([path]) => (path === "/" ? loc.pathname === "/" : loc.pathname.startsWith(path)));
   const current = SECTIONS.find((s) => s.path !== "/" && loc.pathname.startsWith(s.path)) ?? SECTIONS[0];
   const activeRoles = me.access.roles.filter((r) => r.active);
   const dark = p.theme === "dark" || (p.theme === "system" && (p.pattern === "a" || !!window.matchMedia?.("(prefers-color-scheme: dark)").matches));
@@ -21,11 +34,25 @@ export function Shell() {
     <Frame prefs={p}>
       <nav className="nav" aria-label={en ? "Sections" : "الأقسام"}>
         <span className="logo" aria-hidden="true">{en ? "M" : "م"}</span>
-        {sections.map((s) => (
-          <NavLink key={s.path} to={s.path} end={s.path === "/"} className={({ isActive }) => (isActive ? "on" : "")}>
-            {en ? s.en : s.ar}
-          </NavLink>
-        ))}
+        {GROUPS.map((g) => {
+          const items = sections.filter((x) => x.group === g.key);
+          if (!items.length) return null;
+          return (
+            <div key={g.key} className="nav-group" role="group" aria-label={(en ? g.en : g.ar) || undefined}>
+              {(en ? g.en : g.ar) && <span className="nav-title">{en ? g.en : g.ar}</span>}
+              {items.map((x) => (
+                <NavLink key={x.path} to={x.path} end={x.path === "/"}
+                  className={({ isActive }) => (isActive || (x.path === "/rumors" && loc.pathname.startsWith("/claims")) ? "on" : "")}>
+                  <span className="nav-ic" aria-hidden="true">{x.icon}</span><span className="nav-tx">{en ? x.en : x.ar}</span>
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
+        <button className="nav-mode" onClick={() => setAp({ mode: ap.mode === "simple" ? "full" : "simple" })} aria-pressed={ap.mode === "simple"}
+          data-hint="العرض المبسّط يخفي الخيارات المتقدمة النادرة (التصدير بصيغ تقنية، الربط البرمجي…). اضغط للتبديل.">
+          {ap.mode === "simple" ? (en ? "Simple view ✓" : "عرض مبسّط ✓") : (en ? "Simple view" : "عرض مبسّط")}
+        </button>
       </nav>
       <div className="main">
         <header className="top">
@@ -47,6 +74,10 @@ export function Shell() {
               </select>
             </label>
           )}
+          <button className={`mode-btn${ap.hints ? " on" : ""}`} onClick={() => setAp({ hints: !ap.hints })} aria-pressed={ap.hints}
+            aria-label={en ? "Hints" : "التلميحات"} title={ap.hints ? (en ? "Hide hints" : "إخفاء التلميحات") : (en ? "Show hints" : "إظهار التلميحات: شرح قصير لكل زر وعنوان عند الوقوف عليه")}>💡</button>
+          <button className="mode-btn" onClick={() => nav(`/help?topic=${intro?.[2] ?? "start"}`)} aria-label={en ? "Help for this screen" : "شرح هذه الشاشة"}
+            title={en ? "Help for this screen" : "شرح هذه الشاشة من الدليل"}>؟</button>
           <button className="mode-btn" onClick={() => savePrefs({ theme: dark ? "light" : "dark", pattern: "c" })}
             title={dark ? (en ? "Switch to light" : "التبديل إلى الفاتح") : (en ? "Switch to dark" : "التبديل إلى الداكن")}
             aria-label={dark ? (en ? "Light mode" : "الوضع الفاتح") : (en ? "Dark mode" : "الوضع الداكن")}>{dark ? "☀" : "☾"}</button>
@@ -54,10 +85,13 @@ export function Shell() {
             onClick={() => nav("/me")}>{(me.full_name || me.email).trim().charAt(0).toUpperCase()}</button>
         </header>
         <main className="body">
+          {ap.hints && intro && <p className="page-intro">{intro[1]}</p>}
           <Outlet />
           <ReaderDrawer />
         </main>
       </div>
+      <HintLayer on={ap.hints} />
+      {tour && <Tour onClose={() => setTour(false)} />}
     </Frame>
   );
 }

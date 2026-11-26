@@ -122,3 +122,42 @@ code.blk{display:block;padding:10px;background:var(--sf2);border:1px solid var(-
 .eng-facts{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:.95em}
 .eng-facts dt{color:var(--mu);white-space:nowrap}
 .eng-facts dd{margin:0}
+
+/* القائمة المجمّعة */
+.nav{flex:0 0 190px;align-items:stretch;padding:10px 8px;gap:0}
+.nav .logo{align-self:center}
+.nav-group{display:flex;flex-direction:column;gap:1px;margin-bottom:8px}
+.nav-title{font-size:11px;font-weight:700;color:var(--navtx);opacity:.7;padding:6px 8px 3px;letter-spacing:.02em}
+.nav a{width:auto;display:flex;align-items:center;gap:8px;text-align:start;padding:7px 8px;font-size:13px}
+.nav-ic{flex:none;width:20px;text-align:center;font-size:15px}
+.nav-mode{margin-top:auto;border:1px solid var(--navon);background:transparent;color:var(--navtx);border-radius:10px;padding:7px 8px;font:inherit;font-size:12px;cursor:pointer}
+.nav-mode[aria-pressed="true"]{background:var(--navon);color:var(--navontx)}
+@media (max-width:720px){
+  .nav{flex:none;align-items:center;padding:8px}
+  .nav-group{flex-direction:row;margin:0;gap:2px}
+  .nav-title{display:none}
+  .nav a{flex:none;flex-direction:column;gap:2px;font-size:11px;padding:6px 8px}
+  .nav-mode{margin:0 8px;flex:none}
+}
+/* التلميحات */
+.page-intro{margin:0;padding:8px 12px;border-inline-start:3px solid var(--ac);background:var(--sf);border-radius:8px;color:var(--mu);font-size:.95em;line-height:1.7}
+.hint-bubble{position:fixed;z-index:90;max-width:290px;background:var(--tx);color:var(--sf);padding:8px 11px;border-radius:9px;font-size:13px;line-height:1.7;box-shadow:0 6px 22px rgba(0,0,0,.28);pointer-events:none;text-align:start}
+[data-h]::after{content:"ⓘ";font-size:.8em;font-weight:400;color:var(--mu);margin-inline-start:6px;cursor:help}
+label.fld[data-h]::after{content:none}
+.term{border-bottom:1px dotted var(--mu);cursor:help}
+.mode-btn.on{background:var(--acs);border-color:var(--ac)}
+/* العرض المبسّط: تُخفى الخيارات المتقدمة */
+.app[data-mode="simple"] .adv{display:none!important}
+/* البداية والجولة */
+.start-card{border-color:var(--ac)}
+.goal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.goal{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--sf2);color:var(--tx);text-decoration:none;font-weight:600}
+.goal:hover{border-color:var(--ac);background:var(--acs)}
+.tour-back{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.tour-card{background:var(--sf);color:var(--tx);border-radius:14px;padding:20px 22px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:12px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.empty{display:flex;flex-direction:column;gap:8px;align-items:flex-start;color:var(--mu)}
+.filepick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nav a{padding:5px 8px}
+.nav-group{margin-bottom:4px}
+.nav-title{padding:5px 8px 2px}
+.nav .logo{width:38px;height:38px;margin-bottom:4px}

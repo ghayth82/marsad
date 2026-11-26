@@ -55,7 +55,7 @@ export function Rumors() {
               <option value="">كل الحالات</option>{Object.entries(STATUS).map(([k, [, l]]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </div>
-          {!claims.length && <span className="mu">لا ادّعاءات. تُسجَّل تلقائيًا من مواد الشائعات، أو أضف ادّعاءً.</span>}
+          {!claims.length && <span className="mu">لا ادّعاءات بعد. اكتب أول جملة تريد التحقق منها في بطاقة «ادّعاء جديد». وتُسجَّل ادّعاءات تلقائيًا من الأخبار المرصودة.</span>}
           {claims.map((c) => (
             <div key={c.id} className="row">
               <span className="f"><Link to={`/claims/${c.id}`}>{c.text}</Link><br />
@@ -85,7 +85,7 @@ export function Rumors() {
               <span className="pill p-warn">{r.count} مقابل {r.expected}</span></div>
           ))}
         </section>
-        <a className="btn" href="/api/claims/export/claimreview">تصدير ClaimReview</a>
+        <a className="btn adv" href="/api/claims/export/claimreview">تصدير ClaimReview</a>
         <a className="btn" href="/api/claims/export/csv">تصدير CSV</a>
       </div>
     </div>

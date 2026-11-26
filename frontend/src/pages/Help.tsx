@@ -1,9 +1,11 @@
 // دليل الاستخدام داخل البرنامج: لكل قسم ما يفعله وكيف يُقرأ.
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { GLOSSARY } from "../hints/data";
 
 const SECTIONS: { id: string; title: string; to?: string; body: string[] }[] = [
   { id: "start", title: "البداية", body: [
+    "القائمة الجانبية خمس مجموعات: أرصد، أتحقق، أحقق وأكتب، أتابع، الإعداد. «عرض مبسّط» في أسفلها يخفي الخيارات المتقدمة.",
     "اللوحة الرئيسية تعرض البطاقات التي تختارها من «تفضيلاتي»: القصص الصاعدة، الشائعات الجديدة، التنبيهات، حالة المصادر، موجز اليوم.",
     "مظهر الواجهة (فاتح أو داكن، الخط وحجمه، الألوان) واللغة تخصك وحدك وتتبعك إلى أي جهاز. تغيّرها من «تفضيلاتي»، وزر ☾ أو ☀ في الأعلى يبدّل بين الداكن والفاتح.",
     "ترى الأقسام التي تسمح بها أدوارك. إن احتجت قسمًا آخر اطلب الصلاحية من المدير."] },
@@ -71,6 +73,10 @@ const SECTIONS: { id: string; title: string; to?: string; body: string[] }[] = [
 
 export function Help() {
   const [q, setQ] = useState("");
+  const [params] = useSearchParams();
+  const topic = params.get("topic");
+  // زر «؟» في الأعلى يفتح الدليل عند شرح الشاشة التي كان المستخدم فيها
+  useEffect(() => { if (topic) document.getElementById(topic)?.scrollIntoView({ block: "start" }); }, [topic]);
   const shown = SECTIONS.filter((s) => !q.trim() || (s.title + s.body.join(" ")).includes(q.trim()));
   return (
     <div className="cols">
@@ -78,18 +84,31 @@ export function Help() {
         <section className="card">
           <h2>دليل الاستخدام</h2>
           <input className="inp" value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث في الدليل" aria-label="ابحث في الدليل" />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link className="btn sm" to="/?tour=1" data-hint="جولة من خمس محطات تعرّفك بالبرنامج في دقيقة.">أعد الجولة التعريفية</Link>
+            <a className="btn sm" href="#glossary">قاموس المصطلحات</a>
+          </div>
+          <span className="mu">في أي شاشة: قف على أي زر أو عنوان ليظهر شرحه. زر 💡 في الأعلى يخفي التلميحات ويظهرها، وزر ؟ يفتح شرح الشاشة التي أنت فيها.</span>
         </section>
         {shown.map((s) => (
-          <section key={s.id} id={s.id} className="card">
+          <section key={s.id} id={s.id} className="card" style={topic === s.id ? { borderColor: "var(--ac)" } : undefined}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}><h2 style={{ flex: 1 }}>{s.title}</h2>{s.to && <Link className="btn sm" to={s.to}>افتح القسم</Link>}</div>
             <ul style={{ margin: 0, paddingInlineStart: 20, lineHeight: 1.9 }}>{s.body.map((b) => <li key={b}>{b}</li>)}</ul>
           </section>
         ))}
         {!shown.length && <span className="mu">لا نتيجة.</span>}
+        <section id="glossary" className="card">
+          <h2>قاموس المصطلحات</h2>
+          <span className="mu">الكلمات التقنية التي قد تقابلها، بلغة بسيطة.</span>
+          <dl className="eng-facts">
+            {Object.entries(GLOSSARY).filter(([k, v]) => !q.trim() || (k + v).includes(q.trim())).map(([k, v]) => (<span key={k} style={{ display: "contents" }}><dt><b>{k}</b></dt><dd>{v}</dd></span>))}
+          </dl>
+        </section>
       </div>
       <nav className="card side" aria-label="محتويات الدليل">
         <h2>المحتويات</h2>
         {SECTIONS.map((s) => <a key={s.id} href={`#${s.id}`}>{s.title}</a>)}
+        <a href="#glossary">قاموس المصطلحات</a>
       </nav>
     </div>
   );

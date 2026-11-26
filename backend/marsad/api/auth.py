@@ -151,6 +151,19 @@ def accept_invite(body: AcceptIn, request: Request, response: Response, db: Sess
     return me_payload(db, user)
 
 
+@router.get("/me/getting-started")
+def getting_started(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """خطوات «ابدأ من هنا» للمستخدم الجديد: تُشطب كل خطوة حين تُنجز."""
+    from marsad.models.claims import Claim
+    from marsad.models.labs import MediaFile
+    from marsad.models.monitoring import Item, Source
+
+    return {"sources": db.scalar(select(func.count(Source.id))) or 0,
+            "items": db.scalar(select(func.count(Item.id))) or 0,
+            "claims": db.scalar(select(func.count(Claim.id)).where(Claim.created_by == user.id)) or 0,
+            "media": db.scalar(select(func.count(MediaFile.id))) or 0}
+
+
 # ---------- تفضيلاتي ----------
 
 @router.get("/me/preferences")

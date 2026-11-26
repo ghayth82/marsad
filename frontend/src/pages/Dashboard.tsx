@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useSession } from "../session";
+import { GetStarted, Goals } from "../components/GetStarted";
 
 type Task = { id: number; text: string; priority: string; priority_ar: string; overdue: boolean; due_at: string | null };
 
@@ -37,6 +38,7 @@ const linkify = (t: string) => { const m = t.match(/\/(claims|reports|stories)\/
 // اللوحة تعرض البطاقات التي اختارها المستخدم وبترتيبه، ببيانات حقيقية؛ والبطاقة الفارغة تقول ذلك صراحة.
 export function Dashboard() {
   const { me } = useSession();
+  const nav = useNavigate();
   const [d, setD] = useState<Dash | null>(null);
   useEffect(() => {
     const load = () => api<Dash>("/api/dashboard").then(setD).catch(() => {});
@@ -51,7 +53,7 @@ export function Dashboard() {
     switch (k) {
       case "rising_stories":
         return d.rising_stories?.length ? d.rising_stories.map((s) => <div key={s.id} className="row"><Link className="f" to={s.link}>{s.title}</Link><span className="pill p-ac">{s.outlets} مصادر</span></div>)
-          : <Empty t="لا قصص صاعدة في آخر 6 ساعات." />;
+          : <Empty t="لا قصص صاعدة في آخر 6 ساعات. تظهر هنا حين تنشر عدة مصادر عن الحدث نفسه." />;
       case "new_rumors":
         return d.new_rumors ? (<>
           <b>{d.new_rumors.count} ادّعاء في 24 ساعة</b>
@@ -60,7 +62,7 @@ export function Dashboard() {
         </>) : <Empty t="لا صلاحية رصد." />;
       case "alerts":
         return d.alerts?.length ? d.alerts.map((a) => { const l = linkify(a.text); return <div key={a.id} className="row"><span className="f" style={{ fontSize: 13 }}>{l ? <Link to={l}>{a.text.replace(l, "")}</Link> : a.text}</span></div>; })
-          : <Empty t="لا تنبيهات." />;
+          : <Empty t="لا تنبيهات. يصلك هنا توقف مصدر أو عودة شائعة أو مهمة جديدة." />;
       case "sources_status":
         return d.sources_status ? (<>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><span className="pill p-ok">{d.sources_status.ok} تعمل</span>{d.sources_status.error > 0 && <span className="pill p-bad">{d.sources_status.error} متوقفة</span>}<span className="pill p-n">{d.sources_status.total} مصدرًا</span></div>
@@ -72,7 +74,7 @@ export function Dashboard() {
           : <Empty t="يُنشأ الموجز الصباحي تلقائيًا في موعده." />;
       case "my_tasks": {
         const t = d.my_tasks;
-        if (!t || (!t.tasks.length && !t.review.length)) return <Empty t="لا مهام مسندة إليك." />;
+        if (!t || (!t.tasks.length && !t.review.length)) return <Empty t="لا مهام مسندة إليك. المهام يوزّعها المحرّر من «أدوات التحقق»." />;
         return <>{t.tasks.map((x) => <div key={x.id} className="row"><Link className="f" to={`/claims/${x.id}`}>{x.text}</Link>
           <span className={`pill ${x.overdue ? "p-bad" : x.priority === "urgent" ? "p-warn" : "p-n"}`}>{x.overdue ? "تجاوز المهلة" : x.priority_ar}</span></div>)}
           {t.review.length > 0 && <span className="mu">بانتظار مراجعتك</span>}
@@ -91,6 +93,8 @@ export function Dashboard() {
   };
   return (
     <>
+      <GetStarted onTour={() => nav("/?tour=1")} />
+      <Goals />
       {cards.length === 0 && <div className="card"><span className="mu">لوحتك فارغة. أضف بطاقات من «تفضيلاتي».</span></div>}
       <div className="g4">
         {cards.map((k) => (

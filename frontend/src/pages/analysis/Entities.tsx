@@ -41,7 +41,7 @@ function List() {
         <div key={e.id} className="row"><span className="f"><Link to={`/entities/${e.id}`}>{e.name}</Link> <span className="mu">· {KIND[e.kind]}</span></span>
           <span className="pill p-n">{e.mentions} مادة</span></div>
       ))}
-      {!rows.length && <span className="mu">لا كيانات بعد. تُستخرج تلقائيًا من المواد المرصودة.</span>}
+      {!rows.length && <div className="empty"><span>لا أسماء بعد. يستخرج البرنامج أسماء الأشخاص والجهات تلقائيًا من الأخبار المرصودة.</span><Link className="btn pri" to="/sources">أضف مصدرًا</Link></div>}
     </section>
   );
 }

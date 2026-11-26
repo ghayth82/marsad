@@ -35,6 +35,8 @@ class Appearance(BaseModel):
     accent: Literal["teal", "blue", "indigo", "purple", "graphite"] = "teal"
     contrast: bool = False
     density: Literal["comfortable", "compact"] = "comfortable"
+    hints: bool = True  # تلميحات الواجهة: تُخفى وتُظهر متى شاء المستخدم
+    mode: Literal["full", "simple"] = "full"  # العرض المبسّط يخفي الخيارات المتقدمة
 
 
 class Preferences(BaseModel):
@@ -45,6 +47,7 @@ class Preferences(BaseModel):
     language: Literal["ar", "en"] = "ar"
     font_scale: float = Field(1.0, ge=0.8, le=1.6)
     appearance: Appearance = Field(default_factory=Appearance)
+    tour_done: bool = False  # الجولة التعريفية عُرضت أو تُخطّيت
     dashboard: list[str] = Field(default_factory=lambda: ["my_tasks", "rising_stories", "new_rumors", "alerts",
                                                           "sources_status", "daily_brief"])
     view_as_role: str | None = None  # «عرض الواجهة كـ» دور واحد لمن يحمل أكثر من دور

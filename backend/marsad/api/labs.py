@@ -85,6 +85,44 @@ async def upload(file: UploadFile | None = File(None), url: str = Form(""), clai
     return view(m)
 
 
+def _sample_image() -> bytes:
+    """صورة تجريبية مرسومة (ليست صورة حقيقية) فيها بيانات وصفية، ليرى المستخدم الجديد كيف تظهر نتائج الفحص."""
+    import io
+
+    from PIL import Image, ImageDraw
+
+    im = Image.new("RGB", (1200, 800), (135, 190, 235))
+    d = ImageDraw.Draw(im)
+    d.ellipse((930, 80, 1050, 200), fill=(255, 220, 90))
+    d.rectangle((0, 560, 1200, 800), fill=(120, 160, 90))
+    d.polygon([(150, 560), (420, 300), (690, 560)], fill=(170, 150, 130))
+    d.rectangle((760, 420, 1010, 560), fill=(235, 235, 235), outline=(60, 60, 60), width=4)
+    d.text((790, 470), "MARSAD DEMO", fill=(40, 40, 40))
+    ex = Image.Exif()
+    ex[0x010F], ex[0x0110], ex[0x0131] = "Marsad Demo", "Sample Camera", "Marsad sample generator"
+    ex[0x0132] = "2026:01:15 10:30:00"
+    ifd = ex.get_ifd(0x8769)
+    ifd[0x9003] = "2026:01:15 10:30:00"
+    gps = ex.get_ifd(0x8825)
+    gps[1], gps[2], gps[3], gps[4] = "N", (31.0, 57.0, 0.0), "E", (35.0, 55.0, 48.0)
+    out = io.BytesIO()
+    im.save(out, "JPEG", quality=88, exif=ex)
+    return out.getvalue()
+
+
+@router.post("/media/sample")
+def sample(user: User = Depends(use), db: Session = Depends(get_db)):
+    """«جرّب بمثال»: يفحص صورة تجريبية جاهزة كأي ملف مرفوع."""
+    try:
+        m = lab.ingest(db, _sample_image(), "مثال-تجريبي.jpg", origin="upload", user_id=user.id, run=False)
+        lab.analyze(db, m, None)
+    except lab.LabError as e:
+        db.rollback()
+        raise HTTPException(422, str(e)) from None
+    db.commit()
+    return view(m)
+
+
 @router.get("/media")
 def recent(kind: str | None = None, limit: int = 30, _: User = Depends(use), db: Session = Depends(get_db)):
     stmt = select(MediaFile).where(MediaFile.kind != "keyframe").order_by(MediaFile.id.desc()).limit(min(limit, 100))

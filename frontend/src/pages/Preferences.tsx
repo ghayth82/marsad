@@ -121,6 +121,18 @@ export function Preferences() {
             <label className="chk"><input type="checkbox" aria-label="تباين عالٍ" checked={a.contrast} onChange={(e) => ap({ contrast: e.target.checked })} />تباين عالٍ: نص أغمق وحدود أوضح (للشاشات الضعيفة أو لمن يحتاج وضوحًا أكبر)</label>
           </div>
 
+          <h3>المساعدة والتبسيط</h3>
+          <div className="g4">
+            <label className="chk"><input type="checkbox" aria-label="التلميحات" checked={a.hints} onChange={(e) => ap({ hints: e.target.checked })} />التلميحات: شرح قصير لكل زر وعنوان عند الوقوف عليه، وسطر تعريف أعلى كل صفحة (زر 💡 في الأعلى يفعل الشيء نفسه)</label>
+            <label className="fld">طريقة العرض
+              <select className="inp" aria-label="طريقة العرض" value={a.mode} onChange={(e) => ap({ mode: e.target.value as Appearance["mode"] })}>
+                <option value="full">كامل: كل الخيارات</option>
+                <option value="simple">مبسّط: يخفي الخيارات المتقدمة النادرة</option>
+              </select>
+            </label>
+            <div><a className="btn" href="/?tour=1">أعد الجولة التعريفية</a></div>
+          </div>
+
           <h3>أخرى</h3>
           <div className="g4">
             <label className="fld">كثافة العرض

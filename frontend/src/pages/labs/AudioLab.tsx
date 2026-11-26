@@ -77,7 +77,7 @@ export function AudioLab() {
         )}
         <section className="card">
           <h2>آخر التسجيلات</h2>
-          {!recent.length && <span className="mu">لا تسجيلات بعد.</span>}
+          {!recent.length && <span className="mu">لا تسجيلات بعد. ارفع تسجيلًا من النموذج لتبدأ.</span>}
           {recent.map((r) => (
             <div key={r.id} className="row">
               <span className="f">{r.filename || `#${r.id}`}<br /><span className="mu">{fmt(r.seen_at)}</span></span>

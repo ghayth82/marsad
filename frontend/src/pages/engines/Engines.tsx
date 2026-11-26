@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Library, ProviderCard, type ProviderInfo } from "./Library";
-import { NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { useCan } from "../../session";
 import { BatchView } from "./BatchView";
@@ -86,7 +86,7 @@ function RunPage({ data }: { data: EnginesPayload }) {
     catch (e) { setErr((e as Error).message); }
   };
 
-  if (!enabled.length) return <section className="card"><h2>لا توجد محركات بعد</h2><span className="mu">يضيف المدير المحركات من «الإعداد».</span></section>;
+  if (!enabled.length) return <section className="card"><h2>لا توجد محركات بعد</h2><div className="empty"><span>الذكاء الاصطناعي اختياري، والبرنامج يعمل دونه. لتجربته مجانًا نزّل نموذجًا محليًا من «مكتبة المحركات»، أو أضف محركًا مدفوعًا بمفتاحه.</span><Link className="btn pri" to="/engines/library">افتح مكتبة المحركات</Link></div></section>;
 
   return (
     <div className="cols">

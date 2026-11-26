@@ -288,3 +288,12 @@ def test_attach_result_as_claim_evidence_and_rules(admin, make_client):
     # المتدرب لا يملك المختبر
     tr, _ = invite_user(admin, make_client, "tr@example.com", ["trainee"])
     assert tr.post("/api/labs/sun", json={"lat": 0, "lon": 0, "when": "2026-01-01T00:00:00Z"}).status_code == 403
+
+
+def test_try_with_sample_image(admin):
+    r = admin.post("/api/labs/media/sample")
+    assert r.status_code == 200, r.text
+    m = r.json()
+    assert m["kind"] == "image" and m["filename"] == "مثال-تجريبي.jpg"
+    exif = next(c for c in m["checks"] if c["check"] == "exif")
+    assert "Marsad Demo" in json.dumps(exif, ensure_ascii=False)

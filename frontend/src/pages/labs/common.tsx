@@ -1,3 +1,4 @@
+import { Term } from "../../hints/HintLayer";
 import { useState } from "react";
 import { api, apiForm } from "../../api";
 
@@ -16,7 +17,7 @@ export const fmt = (s: string) => new Date(s).toLocaleString("ar", { dateStyle: 
 export const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 /** نموذج الرفع: ملف أو رابط، مع التاريخ المدّعى (يُقارن به الأرشيف). */
-export function UploadForm({ accept, onDone, label }: { accept: string; onDone: (m: Media) => void; label: string }) {
+export function UploadForm({ accept, onDone, label, sample }: { accept: string; onDone: (m: Media) => void; label: string; sample?: boolean }) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [claimed, setClaimed] = useState("");
@@ -34,12 +35,25 @@ export function UploadForm({ accept, onDone, label }: { accept: string; onDone: 
   return (
     <form className="card" onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <h2>{label}</h2>
-      <label className="fld">الملف<input className="inp" type="file" accept={accept} aria-label="الملف" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+      <div className="fld" style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, fontWeight: 600 }}>
+        <span data-hint="اختر الصورة أو الفيديو أو التسجيل من جهازك.">الملف</span>
+        <div className="filepick">
+          <label className="btn" data-hint="يفتح نافذة اختيار ملف من جهازك.">اختر ملفًا من جهازك
+            <input className="sr" type="file" accept={accept} aria-label="الملف" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </label>
+          <span className="mu" style={{ fontWeight: 400 }}>{file ? file.name : "لم يُختر ملف بعد"}</span>
+        </div>
+      </div>
       <label className="fld">أو رابط مباشر<input className="inp" dir="ltr" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" aria-label="رابط الملف" /></label>
-      <label className="fld">التاريخ المدّعى (اختياري)<input className="inp" type="datetime-local" value={claimed} onChange={(e) => setClaimed(e.target.value)} aria-label="التاريخ المدّعى" /></label>
+      <label className="fld">التاريخ المدّعى (اختياري)<input className="inp" type="datetime-local" value={claimed} onChange={(e) => setClaimed(e.target.value)} aria-label="التاريخ المدّعى" />
+        <span className="mu" style={{ fontWeight: 400 }}>اضغط أيقونة التقويم واختر اليوم والساعة. اتركه فارغًا إن لم تعرف.</span></label>
       {err && <div className="msg err" role="alert">{err}</div>}
       <button className="btn pri" disabled={busy || (!file && !url.trim())}>{busy ? "يجري الفحص…" : "افحص"}</button>
-      <span className="mu" style={{ fontSize: 12 }}>يُحفظ الملف في الأرشيف ببصمته SHA-256، ولا يُرسل إلى أي جهة خارجية.</span>
+      {sample && <button type="button" className="btn" disabled={busy} onClick={async () => {
+        setErr(""); setBusy(true);
+        try { onDone(await api<Media>("/api/labs/media/sample", { method: "POST" })); } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+      }}>جرّب بمثال</button>}
+      <span className="mu" style={{ fontSize: 12 }}>يُحفظ الملف على جهازك في <Term k="الأرشيف" /> مع <Term k="البصمة">بصمته</Term>، ولا يُرسل إلى أي جهة خارجية.</span>
     </form>
   );
 }
