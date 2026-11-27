@@ -190,12 +190,11 @@ def test_due_runs_scheduled_package_once(admin, tmp_path):
     p = _pkg(admin, dest, name="يومية", items=["db:ratings"], schedule={"kind": "daily", "time": "03:00"})
     db = next(get_db())
     at = dt(2026, 11, 27, 4, 0, tzinfo=timezone.utc)
-    assert backups.due(db, at) == [p["id"]]
+    assert p["id"] in backups.due(db, at)
     backups.run_package(db, p["id"])
     pk = next(x for x in backups.packages(db) if x["id"] == p["id"])
     assert pk["last_status"] == "ok"
-    assert backups.due(db, at) == []  # نُفّذت بعد موعد اليوم: لا تُعاد حتى الموعد التالي
-    assert backups.due(db, dt(2026, 11, 28, 4, 0, tzinfo=timezone.utc)) in ([], [p["id"]])
+    assert p["id"] not in backups.due(db, at)  # نُفّذت بعد موعد اليوم: لا تُعاد حتى الموعد التالي
     db.close()
 
 
@@ -226,3 +225,39 @@ def test_download_original_page(admin):
     assert unquote(r.headers["content-disposition"]).endswith(f"خبرني - تأجيل الامتحانات - {sha[:8]} - 2026-11-27.html")
     import hashlib
     assert hashlib.sha256(r.content).hexdigest() == r.headers["x-archive-sha256"] == sha
+
+
+def test_daily_backup_is_an_editable_builtin_package(admin, tmp_path):
+    """النسخة اليومية موجودة من أول تشغيل: قاعدة البيانات وحدها افتراضيًا، تُعدَّل ولا تُحذف."""
+    from marsad.core.paths import ensure_storage
+    from marsad.tasks import daily_backup
+
+    rows = admin.get("/api/admin/backup/packages").json()
+    daily = next(r for r in rows if r["id"] == "daily")
+    assert daily["builtin"] and daily["name"] == "النسخة اليومية" and daily["dest"] == ""
+    assert all(x.startswith("db:") for x in daily["items"]) and len(daily["items"]) == 10
+    assert daily["schedule"]["kind"] == "daily" and daily["keep"] == 14
+    assert daily["dest_path"] == str(ensure_storage().backups)
+    # الملفات لا تُنسخ تلقائيًا بعد: «أين ملفاتي؟» ينبّه
+    assert admin.get("/api/admin/storage/folders").json()["auto_backed_up"] == []
+    # لا تُحذف
+    assert "لا تُحذف" in admin.delete("/api/admin/backup/packages/daily").json()["detail"]
+    # يختار المدير ما يدخل فيها: يضيف التحقيقات والصور، ويغيّر الساعة، والاسم لا يتغيّر
+    body = {**daily, "items": daily["items"] + ["files:cases", "files:media"], "name": "اسم آخر",
+            "schedule": {"kind": "daily", "time": "22:15"}, "passphrase": None}
+    r = admin.put("/api/admin/backup/packages/daily", json=body)
+    assert r.status_code == 200, r.text
+    assert r.json()["name"] == "النسخة اليومية" and r.json()["schedule"]["time"] == "22:15"
+    assert admin.get("/api/admin/storage/folders").json()["auto_backed_up"] == ["cases", "media"]
+    # تُنسخ في مجلد «النسخ الاحتياطي» داخل التخزين
+    d = ensure_storage().cases / "عقود"
+    d.mkdir(parents=True)
+    (d / "وثيقة 01 - عقد - aaaaaaaa - 2026-11-27.pdf").write_bytes(b"%PDF-1.4 x")
+    admin.post("/api/admin/backup/packages/daily/run")
+    store = ensure_storage().backups / "النسخة اليومية"
+    assert list(store.glob("نسخة - النسخة اليومية - *.marsad-backup"))
+    assert (store / "ملفات" / "التحقيقات" / "عقود" / "وثيقة 01 - عقد - aaaaaaaa - 2026-11-27.pdf").exists()
+    found = admin.post("/api/admin/backup/list", json={"folder": daily["dest_path"]}).json()
+    assert any(f["package"] == "النسخة اليومية" for f in found)
+    # المهمة القديمة لم تعد تنسخ (لا نسختان كل يوم)
+    assert daily_backup(0) == "package"

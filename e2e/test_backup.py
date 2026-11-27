@@ -36,6 +36,24 @@ def main() -> int:
         page.goto(f"{BASE}/admin/backup")
         expect(page.locator(".page-intro")).to_contain_text("باقات النسخ الاحتياطي")
 
+        # النسخة اليومية موجودة من البداية: قاعدة البيانات وحدها، ويختار المدير ما يضيفه إليها
+        daily = page.locator("[data-pkg='النسخة اليومية']")
+        expect(daily).to_contain_text("تلقائية")
+        expect(daily.get_by_role("button", name="حذف")).to_have_count(0)
+        daily.get_by_role("button", name="تعديل").click()
+        dform = page.get_by_role("form", name="الباقة")
+        expect(dform.get_by_label("اسم الباقة")).to_have_count(0)
+        expect(dform.get_by_label("قاعدة البيانات: الشائعات والادعاءات")).to_be_checked()
+        dform.get_by_label("الملفات: التحقيقات").check()  # (على قاعدة جديدة تكون غير مؤشّرة؛ السكربت يُعاد على القاعدة نفسها)
+        dform.get_by_role("button", name="حفظ الباقة").click()
+        expect(daily).to_contain_text("التحقيقات")
+        # «أين ملفاتي؟» لم يعد يذكر التحقيقات بين ما لا يُنسخ
+        page.goto(f"{BASE}/admin/settings")
+        warn = page.locator("section.card", has=page.get_by_role("heading", name="أين ملفاتي؟")).locator(".msg.warn")
+        expect(warn).to_contain_text("لا تُنسخ تلقائيًا")
+        expect(warn).not_to_contain_text("التحقيقات")
+        page.goto(f"{BASE}/admin/backup")
+
         # باقة جديدة: الاختيار من القائمة يُظهر ما يُضاف تلقائيًا
         page.get_by_role("button", name="باقة جديدة").click()
         form = page.get_by_role("form", name="الباقة")

@@ -29,6 +29,9 @@ def _bootstrap() -> None:
     db = next(get_db())
     try:
         seed_builtin_roles(db)
+        from marsad.backups import ensure_daily
+
+        ensure_daily(db)  # النسخة اليومية باقة قابلة للتعديل
         db.commit()
         _schedule_data_upgrades(db)
         from marsad import search

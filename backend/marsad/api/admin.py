@@ -326,8 +326,12 @@ def storage_folders(_: User = Depends(manage_system), db: Session = Depends(get_
                 except OSError:
                     pass
         rows.append({"key": key, "name": d.name, "purpose": purpose, "path": str(d), "files": files, "bytes": size})
+    from marsad import backups
+
+    auto = sorted({x[6:] for p in backups.packages(db) if (p.get("schedule") or {}).get("kind", "manual") != "manual"
+                   for x in p.get("items", []) if x.startswith("files:")})
     return {"root": str(paths.root), "folders": rows, "encrypt_case_files": encrypt_files(db), "reorganizing": pending(db),
-            "external_backup": paths.backups.parent != paths.root and not paths.backup_fallback}
+            "auto_backed_up": auto}
 
 
 class CaseEncryptionIn(BaseModel):
@@ -413,7 +417,10 @@ def backup_delete(pid: str, actor: User = Depends(manage_system), db: Session = 
     from marsad import backups
     from marsad.audit import record
 
-    backups.remove(db, pid, actor)
+    try:
+        backups.remove(db, pid, actor)
+    except backups.BackupError as e:
+        raise _bk_err(e) from None
     record(db, actor, "backup.package_delete", "backup", pid)
     db.commit()
     return {"ok": True}

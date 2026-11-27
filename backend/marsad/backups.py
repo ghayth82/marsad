@@ -199,6 +199,9 @@ def _store_marker(store_dir: Path, encrypted: bool) -> dict:
 # ---------- إنشاء نسخة ----------
 
 def package_dir(dest: str, name: str) -> Path:
+    """مكان نسخ الباقة. دون مكان (النسخة اليومية افتراضيًا): داخل مجلد «النسخ الاحتياطي» الذي يحدده «التخزين»."""
+    if not dest:
+        return ensure_storage().backups / (naming.clean(name, 60) or "باقة")
     return expand_path(dest) / ROOT_NAME / (naming.clean(name, 60) or "باقة")
 
 
@@ -528,6 +531,25 @@ def _reindex(engine: Engine, kinds: list[str] | None = None) -> None:
 SCHEDULES = ("manual", "daily", "weekly", "monthly")
 
 
+DAILY_ID = "daily"
+
+
+def daily_default() -> dict:
+    """النسخة اليومية: موجودة من البداية، قاعدة البيانات كاملة كل يوم في مجلد «النسخ الاحتياطي».
+    يعدّلها المدير كأي باقة (ما يُنسخ، المكان، الموعد، العدد، التشفير)، ولا تُحذف."""
+    return {"id": DAILY_ID, "builtin": True, "name": "النسخة اليومية", "items": sorted(f"db:{g}" for g in DB_GROUPS),
+            "dest": "", "schedule": {"kind": "daily", "time": "03:23", "weekday": 4, "day": 1}, "keep": 14, "encrypt": False}
+
+
+def ensure_daily(db: Session) -> bool:
+    """يضيف النسخة اليومية إن لم تكن موجودة (أول تشغيل، أو ترقية من إصدار سابق). يُرجع True إن أضافها."""
+    rows = packages(db)
+    if any(r["id"] == DAILY_ID for r in rows):
+        return False
+    _save(db, [daily_default()] + rows)
+    return True
+
+
 def packages(db: Session) -> list[dict]:
     from marsad.rbac.service import get_setting
 
@@ -542,11 +564,13 @@ def _save(db: Session, rows: list[dict], actor=None) -> None:
 
 def public(pkg: dict) -> dict:
     """الباقة كما تُعرض: دون عبارة المرور."""
-    return {k: v for k, v in pkg.items() if k != "passphrase_enc"} | {"has_passphrase": bool(pkg.get("passphrase_enc"))}
+    where = str(expand_path(pkg["dest"])) if pkg.get("dest") else str(ensure_storage().backups)
+    return {k: v for k, v in pkg.items() if k != "passphrase_enc"} | {"has_passphrase": bool(pkg.get("passphrase_enc")), "dest_path": where}
 
 
 def validate(body: dict, old: dict | None = None) -> dict:
-    name = naming.clean(body.get("name") or "", 60)
+    builtin = bool(old and old.get("builtin"))
+    name = old["name"] if builtin else naming.clean(body.get("name") or "", 60)
     if not name:
         raise BackupError("اكتب اسمًا للباقة")
     items = [x for x in body.get("items") or [] if isinstance(x, str)]
@@ -554,11 +578,11 @@ def validate(body: dict, old: dict | None = None) -> dict:
     if not dbs and not files:
         raise BackupError("اختر شيئًا واحدًا على الأقل لنسخه")
     dest = (body.get("dest") or "").strip()
-    if not dest:
+    if not dest and not builtin:
         raise BackupError("اختر مكان الحفظ")
-    target = expand_path(dest)
+    target = expand_path(dest) if dest else ensure_storage().backups
     root = ensure_storage().root
-    if target == root or root in target.parents:
+    if dest and (target == root or root in target.parents):
         if target != root / SUBDIRS["backups"] and (root / SUBDIRS["backups"]) not in target.parents:
             raise BackupError("لا تحفظ النسخ داخل مجلد البيانات (إلا مجلد «النسخ الاحتياطي»): ستُنسخ النسخ نفسها")
     sched = body.get("schedule") or {}
@@ -610,6 +634,8 @@ def upsert(db: Session, body: dict, pid: str | None, actor=None) -> dict:
 
 def remove(db: Session, pid: str, actor=None) -> None:
     """يحذف الباقة من القائمة فقط. نسخها على القرص تبقى."""
+    if pid == DAILY_ID:
+        raise BackupError("النسخة اليومية لا تُحذف. لإيقافها اجعل موعدها «يدوي فقط».")
     _save(db, [r for r in packages(db) if r["id"] != pid], actor)
 
 

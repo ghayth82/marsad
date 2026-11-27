@@ -229,4 +229,13 @@ def daily_backup(timestamp: int) -> str:
 
     if get_settings().mode == "server":
         return "server"
+    from marsad.backups import DAILY_ID, packages
+    from marsad.db import get_db
+
+    db = next(get_db())
+    try:
+        if any(p["id"] == DAILY_ID for p in packages(db)):
+            return "package"  # النسخة اليومية صارت باقة قابلة للتعديل تعمل بمهمة الباقات
+    finally:
+        db.close()
     return str(backup_now(get_engine()))

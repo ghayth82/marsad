@@ -102,7 +102,7 @@ function StorageCard() {
 }
 
 /** قوائم العقوبات والأشخاص ذوي النفوذ لمطابقة أسماء القضايا. */
-type Folders = { root: string; encrypt_case_files: boolean; reorganizing: boolean; external_backup: boolean;
+type Folders = { root: string; encrypt_case_files: boolean; reorganizing: boolean; auto_backed_up: string[];
   folders: { key: string; name: string; purpose: string; path: string; files: number; bytes: number }[] };
 
 const size = (b: number) => b >= 2 ** 30 ? `${(b / 2 ** 30).toFixed(1)} غيغابايت` : b >= 2 ** 20 ? `${(b / 2 ** 20).toFixed(1)} ميغابايت` : b ? `${Math.max(1, Math.round(b / 1024))} كيلوبايت` : "فارغ";
@@ -136,7 +136,10 @@ function FilesCard() {
           <span className="pill p-n">{f.files ? `${f.files} ملف · ${size(f.bytes)}` : "فارغ"}</span>
         </div>
       ))}
-      {!d.external_backup && <div className="msg warn">النسخة الاحتياطية اليومية تحفظ قاعدة البيانات فقط. ملفات هذه المجلدات لا تُنسخ إلا إذا حدّدت مجلد نسخ على قرص خارجي من «التخزين» أعلاه.</div>}
+      {(() => {
+        const missing = d.folders.filter((x) => !["backups", "exports"].includes(x.key) && !d.auto_backed_up.includes(x.key));
+        return missing.length > 0 && <div className="msg warn">لا تُنسخ تلقائيًا: {missing.map((x) => x.name).join("، ")}. أضفها إلى «النسخة اليومية» أو باقة أخرى من تبويب <a href="/admin/backup">«النسخ الاحتياطي»</a>.</div>;
+      })()}
       <h3>وثائق التحقيقات</h3>
       <label className="chk"><input type="checkbox" aria-label="تشفير وثائق التحقيقات" checked={d.encrypt_case_files} disabled={busy} onChange={(e) => toggle(e.target.checked)} />
         تشفير ملفات وثائق التحقيقات على القرص</label>
@@ -332,11 +335,11 @@ export function Backups() {
   const load = () => api<typeof rows>("/api/admin/backups").then(setRows).catch(() => {});
   useEffect(() => { load(); }, []);
   const run = async (f: () => Promise<string>) => { setBusy(true); setMsg(""); try { setMsg(await f()); load(); } catch (x) { setMsg((x as Error).message); } finally { setBusy(false); } };
+  if (!rows.length) return null;  // لا نسخ من الإصدار السابق
   return (
     <section className="card" aria-label="النسخ الاحتياطي">
-      <h2>النسخة اليومية لقاعدة البيانات</h2>
-      <span className="mu" style={{ fontSize: 12 }}>نسخة تلقائية كل يوم لقاعدة البيانات كاملة داخل مجلد «النسخ الاحتياطي» (تُحفظ آخر 14)، تعمل دائمًا إلى جانب الباقات. على الخادم: الأمر marsad backup.</span>
-      <button className="btn sm" disabled={busy} onClick={() => run(async () => { const r = await api<{ name: string }>("/api/admin/backups", { method: "POST" }); return `أُخذت نسخة: ${r.name}`; })}>نسخة الآن</button>
+      <h2>نسخ الإصدار السابق</h2>
+      <span className="mu" style={{ fontSize: 12 }}>نسخ قاعدة البيانات التي أخذها البرنامج قبل أن تصير «النسخة اليومية» باقة قابلة للتعديل. تستطيع استعادة إحداها كاملة.</span>
       {rows.length > 0 && (
         <>
           <select className="inp" value={sel} onChange={(e) => setSel(e.target.value)} aria-label="النسخة">

@@ -7,7 +7,7 @@ type CatRow = { id: string; label: string; hint: string; rows?: number; files?: 
 type Catalog = { db: CatRow[]; files: CatRow[]; not_included: string };
 type Schedule = { kind: "manual" | "daily" | "weekly" | "monthly"; time: string; weekday: number; day: number };
 type Pkg = {
-  id: string; name: string; items: string[]; dest: string; schedule: Schedule; keep: number; encrypt: boolean; has_passphrase: boolean;
+  id: string; name: string; items: string[]; dest: string; dest_path: string; builtin?: boolean; schedule: Schedule; keep: number; encrypt: boolean; has_passphrase: boolean;
   last_status?: "ok" | "error" | "running"; last_run_at?: string; last_message?: string; last_file?: string; last_size?: number;
 };
 type Found = { path: string; name: string; size: number; created_at: string; package: string; encrypted: boolean };
@@ -24,7 +24,7 @@ const EMPTY = { name: "", items: [] as string[], dest: "", schedule: { kind: "da
 export function BackupPage() {
   const [cat, setCat] = useState<Catalog | null>(null);
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
-  const [edit, setEdit] = useState<(typeof EMPTY & { id?: string; has_passphrase?: boolean }) | null>(null);
+  const [edit, setEdit] = useState<(typeof EMPTY & { id?: string; has_passphrase?: boolean; builtin?: boolean }) | null>(null);
   const [msg, setMsg] = useState("");
   const load = () => api<Pkg[]>("/api/admin/backup/packages").then(setPkgs).catch((e) => setMsg(e.message));
   useEffect(() => { api<Catalog>("/api/admin/backup/catalog").then(setCat).catch((e) => setMsg(e.message)); load(); }, []);
@@ -53,9 +53,9 @@ export function BackupPage() {
           {pkgs.map((p) => (
             <div className="row" key={p.id} data-pkg={p.name}>
               <span className="f">
-                <b>{p.name}</b> {p.encrypt && <span className="pill p-n">مشفّرة</span>}<br />
+                <b>{p.name}</b> {p.builtin && <span className="pill p-ac">تلقائية</span>} {p.encrypt && <span className="pill p-n">مشفّرة</span>}<br />
                 <span className="mu">{p.items.map(label).join("، ")}</span><br />
-                <span className="mu">{when(p.schedule)} · تُحفظ آخر {p.keep} · <code dir="ltr" style={{ fontSize: 12 }}>{p.dest}</code></span><br />
+                <span className="mu">{when(p.schedule)} · تُحفظ آخر {p.keep} · {p.dest ? <code dir="ltr" style={{ fontSize: 12 }}>{p.dest}</code> : "مجلد «النسخ الاحتياطي»"}</span><br />
                 {p.last_status === "running" && <span className="pill p-warn" role="status">تعمل الآن…</span>}
                 {p.last_status === "ok" && <span className="pill p-ok" role="status">آخر نسخة {fmt(p.last_run_at)} · {p.last_message} · {size(p.last_size)}</span>}
                 {p.last_status === "error" && <span className="pill p-bad" role="status">فشلت {fmt(p.last_run_at)}: {p.last_message}</span>}
@@ -63,7 +63,7 @@ export function BackupPage() {
               <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button className="btn sm pri" disabled={p.last_status === "running"} onClick={() => run(p)}>انسخ الآن</button>
                 <button className="btn sm" onClick={() => setEdit({ ...EMPTY, ...p, passphrase: "" })}>تعديل</button>
-                <button className="btn sm" onClick={() => del(p)}>حذف</button>
+                {!p.builtin && <button className="btn sm" onClick={() => del(p)}>حذف</button>}
               </span>
             </div>
           ))}
@@ -100,7 +100,7 @@ function Checklist({ cat, picked, onChange, available }: { cat: { db: CatRow[]; 
   );
 }
 
-function Editor({ value, cat, onCancel, onSaved }: { value: typeof EMPTY & { id?: string; has_passphrase?: boolean }; cat: Catalog; onCancel: () => void; onSaved: () => void }) {
+function Editor({ value, cat, onCancel, onSaved }: { value: typeof EMPTY & { id?: string; has_passphrase?: boolean; builtin?: boolean }; cat: Catalog; onCancel: () => void; onSaved: () => void }) {
   const [f, setF] = useState(value);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -116,11 +116,13 @@ function Editor({ value, cat, onCancel, onSaved }: { value: typeof EMPTY & { id?
   return (
     <form onSubmit={save} className="card" style={{ background: "var(--sf2)", display: "flex", flexDirection: "column", gap: 10 }} aria-label="الباقة">
       <h3 style={{ margin: 0 }}>{f.id ? `تعديل «${value.name}»` : "باقة جديدة"}</h3>
-      <label className="fld">اسم الباقة<input className="inp" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="مثال: أسبوعي - كل شيء إلى القرص الخارجي" /></label>
+      {f.builtin
+        ? <span className="mu">تعمل وحدها من أول تشغيل. اختر ما يدخل فيها: قاعدة البيانات وحدها (الافتراضي)، أو معها الصور والوثائق والصفحات المؤرشفة. لا تُحذف؛ لإيقافها اجعل موعدها «يدوي فقط».</span>
+        : <label className="fld">اسم الباقة<input className="inp" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="مثال: أسبوعي - كل شيء إلى القرص الخارجي" /></label>}
       <span><b>ماذا تنسخ؟</b> <span className="mu">ما يعتمد عليه اختيارك يُضاف تلقائيًا (الادّعاءات تحتاج الأخبار التي تشير إليها، وكل شيء يحتاج الحسابات).</span></span>
       <Checklist cat={cat} picked={f.items} onChange={(items) => setF({ ...f, items })} />
       <span className="mu" style={{ fontSize: 12 }}>لا يُنسخ: {cat.not_included}</span>
-      <label className="fld">مكان الحفظ<input className="inp" dir="ltr" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} placeholder="E:\" aria-label="مكان الحفظ" /></label>
+      <label className="fld">مكان الحفظ{f.builtin ? " (اتركه فارغًا: مجلد «النسخ الاحتياطي» في التخزين)" : ""}<input className="inp" dir="ltr" value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })} placeholder="E:\" aria-label="مكان الحفظ" /></label>
       {tauri() && <div><button type="button" className="btn sm" onClick={async () => { const d = await tauri()!.core.invoke<string | null>("pick_folder"); if (d) setF({ ...f, dest: d }); }}>اختيار مجلد…</button></div>}
       <span className="mu" style={{ fontSize: 12 }}>تُحفظ في مجلد «مرصد التحقق - نسخ احتياطية / اسم الباقة» داخل المكان المختار. قرص خارجي هو الأفضل: يبقى لو تعطّل الجهاز.</span>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
@@ -140,8 +142,8 @@ function Editor({ value, cat, onCancel, onSaved }: { value: typeof EMPTY & { id?
         <span className="mu" style={{ fontSize: 12 }}>احفظها في مكان آمن: بدونها لا تُفتح النسخ على جهاز آخر.</span></label>}
       {err && <div className="msg err" role="alert">{err}</div>}
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn pri" disabled={busy || !f.name.trim() || !f.items.length || !f.dest.trim()}
-          data-why={!f.items.length ? "اختر شيئًا واحدًا على الأقل لنسخه" : !f.dest.trim() ? "اختر مكان الحفظ" : !f.name.trim() ? "اكتب اسمًا للباقة" : undefined}>حفظ الباقة</button>
+        <button className="btn pri" disabled={busy || !f.name.trim() || !f.items.length || (!f.builtin && !f.dest.trim())}
+          data-why={!f.items.length ? "اختر شيئًا واحدًا على الأقل لنسخه" : !f.builtin && !f.dest.trim() ? "اختر مكان الحفظ" : !f.name.trim() ? "اكتب اسمًا للباقة" : undefined}>حفظ الباقة</button>
         <button type="button" className="btn" onClick={onCancel}>إلغاء</button>
       </div>
     </form>
@@ -158,7 +160,7 @@ function Restore({ pkgs }: { pkgs: Pkg[] }) {
   const [mode, setMode] = useState<"merge" | "replace">("merge");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const dests = Array.from(new Set(pkgs.map((p) => p.dest)));
+  const dests = Array.from(new Set(pkgs.map((p) => p.dest_path)));
   const err = (x: unknown) => setMsg({ ok: false, text: (x as Error).message });
 
   const look = async (dir: string) => {
