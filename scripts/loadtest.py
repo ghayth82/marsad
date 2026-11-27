@@ -156,11 +156,14 @@ def load_phase(conn, gen: Gen, start: int, end: int, n_outlets: int, now: dateti
 
 # ---------- الفهرسة في Meilisearch ----------
 
-def meili_wait(base: str, h: dict, http) -> None:
+def meili_wait(base: str, h: dict, http, since: str | None = None) -> None:
+    """ينتظر انتهاء المهام. since: يُفحص الفشل فيما أُضيف بعده فقط (حذف فهرس غير موجود في البداية ليس فشلًا)."""
     while True:
         r = http.get(f"{base}/tasks", headers=h, params={"statuses": "enqueued,processing", "limit": 1}).json()
         if not r.get("results"):
-            failed = http.get(f"{base}/tasks", headers=h, params={"statuses": "failed", "limit": 3}).json().get("results")
+            if since is None:
+                return
+            failed = http.get(f"{base}/tasks", headers=h, params={"statuses": "failed", "limit": 3, "afterEnqueuedAt": since}).json().get("results")
             if failed:
                 raise SystemExit(f"فشلت فهرسة Meilisearch: {failed[0].get('error')}")
             return
@@ -170,6 +173,7 @@ def meili_wait(base: str, h: dict, http) -> None:
 def meili_index(conn, base: str, h: dict, http, kind: str, sql: str, lo: int, hi: int, to_doc) -> float:
     from marsad import search
 
+    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     http.post(f"{base}/indexes", headers=h, json={"uid": kind, "primaryKey": "id"})
     http.patch(f"{base}/indexes/{kind}/settings", headers=h, json=search.INDEXES[kind]["settings"])
     t0 = time.time()
@@ -180,12 +184,12 @@ def meili_index(conn, base: str, h: dict, http, kind: str, sql: str, lo: int, hi
         for row in cur:
             buf.append(to_doc(row))
             if len(buf) >= 20000:
-                http.post(f"{base}/indexes/{kind}/documents", headers=h, content=json.dumps(buf, ensure_ascii=False).encode(),
+                http.post(f"{base}/indexes/{kind}/documents", headers={**h, "Content-Type": "application/json"}, content=json.dumps(buf, ensure_ascii=False).encode(),
                           timeout=300)
                 buf = []
         if buf:
-            http.post(f"{base}/indexes/{kind}/documents", headers=h, content=json.dumps(buf, ensure_ascii=False).encode(), timeout=300)
-    meili_wait(base, h, http)
+            http.post(f"{base}/indexes/{kind}/documents", headers={**h, "Content-Type": "application/json"}, content=json.dumps(buf, ensure_ascii=False).encode(), timeout=300)
+    meili_wait(base, h, http, since)
     return time.time() - t0
 
 
