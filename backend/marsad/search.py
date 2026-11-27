@@ -19,7 +19,7 @@ from marsad.models.monitoring import Item
 from marsad.text import normalize_ar
 
 INDEX = "items"
-SEARCH_REV = 2  # يرتفع حين تتغيّر إعدادات الفهارس أو شكل الوثائق، فيُعاد بناؤها مرة واحدة في الخلفية
+SEARCH_REV = 3  # يرتفع حين تتغيّر إعدادات الفهارس أو شكل الوثائق، فيُعاد بناؤها مرة واحدة في الخلفية
 _ready: set[str] = set()
 log = logging.getLogger(__name__)
 
@@ -64,10 +64,12 @@ def _doc_story(s) -> dict:
 
 
 INDEXES: dict[str, dict] = {
+    # قرب الكلمات يُحسب داخل الحقل لا كلمة بكلمة، والبحث في القيم المفلترة معطّل (لا نستعمله): يصغر الفهرس كثيرًا
     "items": {"doc": _doc_item, "settings": {
         "searchableAttributes": ["norm_title", "norm"],
         "filterableAttributes": ["source_id", "outlet_id", "status", "published_ts", "captured_ts", "story_id"],
-        "sortableAttributes": ["published_ts", "captured_ts"]}},
+        "sortableAttributes": ["published_ts", "captured_ts"],
+        "proximityPrecision": "byAttribute", "facetSearch": False}},
     "claims": {"doc": _doc_claim, "settings": {
         "searchableAttributes": ["norm", "speaker"], "filterableAttributes": ["status", "created_ts"],
         "sortableAttributes": ["created_ts"]}},

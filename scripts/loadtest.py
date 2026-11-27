@@ -337,6 +337,7 @@ def main() -> int:
         both("بحث الأخبار: اسم نادر", "/api/items", {"q": rare_q, "limit": 50})
         both("بحث الأخبار: كلمتان", "/api/items", {"q": two_q, "limit": 50})
         both("بحث الأخبار: كلمة + موقع واحد", "/api/items", {"q": mid_q, "outlet_id": 7, "limit": 50})
+        both("بحث دون «ال»: امتحانات (هل يجد الامتحانات؟)", "/api/items", {"q": "امتحانات", "limit": 50})
         both("بحث الادّعاءات", "/api/claims", {"q": mid_q, "limit": 50})
         with conn.cursor() as cur:  # اسم كيان موجود فعلًا (كلمته الأولى)
             cur.execute("SELECT name FROM entities WHERE id = %s", (max(target // 20, 1),))
