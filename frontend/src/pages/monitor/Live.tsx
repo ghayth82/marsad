@@ -14,7 +14,7 @@ export function Live() {
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
   const [status, setStatus] = useState(params.get("status") ?? "");
-  const [data, setData] = useState<{ total: number; engine: string; items: It[] } | null>(null);
+  const [data, setData] = useState<{ total: number; total_capped?: boolean; engine: string; items: It[] } | null>(null);
   const [st, setSt] = useState<Status | null>(null);
   const reader = useReader();
   const [ms, setMs] = useState(0);
@@ -39,7 +39,7 @@ export function Live() {
             <option value="">كل المواد</option><option value="edited">عُدّلت بعد النشر</option><option value="deleted">حُذفت</option>
           </select>
           <button className="btn pri">بحث</button>
-          {data && <span className="mu">{data.total} مادة · {ms} مللي ثانية</span>}
+          {data && <span className="mu">{data.total_capped ? `أكثر من ${data.total}` : data.total} مادة · {ms} مللي ثانية</span>}
         </form>
         <section className="card">
           <h2>تدفّق المواد</h2>

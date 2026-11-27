@@ -371,7 +371,9 @@ def items(q: str = "", source_id: int | None = None, outlet_id: int | None = Non
     rows, total, how = search_mod.search(db, q, source_id=source_id, outlet_id=outlet_id, status=status,
                                          date_from=date_from, date_to=date_to, story_id=story_id,
                                          limit=min(limit, 200), offset=offset)
-    return {"total": total, "engine": how, "items": [item_out(i) for i in rows]}
+    capped = bool(q.strip()) and total > search_mod.COUNT_CAP - 1  # Meilisearch يقف عند 1000، والقاعدة تعدّ حتى 1001
+    return {"total": min(total, search_mod.COUNT_CAP) if capped else total, "total_capped": capped, "engine": how,
+            "items": [item_out(i) for i in rows]}
 
 
 @router.get("/items/{iid}")

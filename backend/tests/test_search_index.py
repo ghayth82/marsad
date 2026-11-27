@@ -159,3 +159,40 @@ def test_story_search_without_index_covers_all_stories(admin):
     oid = old.id
     db.close()
     assert [x["id"] for x in admin.get("/api/stories", params={"q": "الكهربا"}).json()] == [oid]
+
+
+def test_db_search_recent_window_matches_full_search(admin, monkeypatch):
+    """البحث في القاعدة يبدأ بأحدث الأخبار؛ النتائج والترتيب يطابقان البحث الكامل، والنادر يُكمَل بالفهرس."""
+    from datetime import datetime, timedelta, timezone
+
+    from marsad import search
+    from marsad.db import get_db
+    from marsad.models.monitoring import Item, Outlet, Source
+    from marsad.text import normalize_ar
+
+    db = next(get_db())
+    o = Outlet(name="خبرني")
+    db.add(o)
+    db.flush()
+    s = Source(outlet_id=o.id, url="https://kh.example/", kind="rss", read_url="https://kh.example/rss")
+    db.add(s)
+    db.flush()
+    t0 = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    for n in range(60):
+        words = "الحكومة تعلن" + (" قرار نادر" if n in (3, 41) else "") + (" الامتحانات" if n % 2 else "")
+        db.add(Item(source_id=s.id, outlet_id=o.id, url=f"https://kh.example/{n}", title=f"خبر {n}", text=words,
+                    norm=normalize_ar(f"خبر {n} {words}"), captured_at=t0 + timedelta(hours=n), content_hash=str(n)))
+    db.commit()
+
+    def brute(q, offset, limit):
+        terms = normalize_ar(q).split()
+        rows = sorted((i for i in db.query(Item) if all(t in i.norm for t in terms)), key=lambda i: (i.captured_at, i.id), reverse=True)
+        return [i.id for i in rows[offset:offset + limit]], len(rows)
+
+    monkeypatch.setattr(search, "RECENT_WINDOW", 10)  # نافذة صغيرة: تكفي للشائع ولا تكفي للنادر
+    for q, off, lim in (("الحكومة", 0, 5), ("الامتحانات", 0, 5), ("الامتحانات", 2, 3), ("قرار نادر", 0, 5), ("الحكومة", 0, 50)):
+        rows, total, how = search.search(db, q, offset=off, limit=lim)
+        ids, n = brute(q, off, lim)
+        assert how == "db" and [r.id for r in rows] == ids and total == n, (q, off, lim)
+    db.close()
+    assert admin.get("/api/items", params={"q": "الحكومة", "limit": 5}).json()["total_capped"] is False

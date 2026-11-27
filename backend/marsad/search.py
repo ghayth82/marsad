@@ -19,6 +19,8 @@ from marsad.models.monitoring import Item
 from marsad.text import normalize_ar
 
 INDEX = "items"
+RECENT_WINDOW = 5000  # نافذة الأخبار الأحدث التي يُبحث فيها أولًا عن الكلمات الشائعة
+COUNT_CAP = 1000  # فوقه يُعرض «أكثر من 1000» (حد Meilisearch الافتراضي أيضًا)
 SEARCH_REV = 3  # يرتفع حين تتغيّر إعدادات الفهارس أو شكل الوثائق، فيُعاد بناؤها مرة واحدة في الخلفية
 _ready: set[str] = set()
 log = logging.getLogger(__name__)
@@ -244,9 +246,8 @@ def search(db: Session, q: str = "", *, source_id: int | None = None, outlet_id:
             ids, total = r
             found = {i.id: i for i in db.scalars(select(Item).where(Item.id.in_(ids)))}
             return [found[i] for i in ids if i in found], total, "meili"
+    text_conds = [Item.norm.contains(term) for term in nq.split()]
     conds = []
-    for term in nq.split():
-        conds.append(Item.norm.contains(term))
     if source_id is not None:
         conds.append(Item.source_id == source_id)
     if outlet_id is not None:
@@ -259,7 +260,28 @@ def search(db: Session, q: str = "", *, source_id: int | None = None, outlet_id:
         conds.append(Item.captured_at >= date_from)
     if date_to:
         conds.append(Item.captured_at <= date_to)
-    where = and_(*conds) if conds else True
-    total = db.scalar(select(func.count(Item.id)).where(where))
-    rows = db.scalars(select(Item).where(where).order_by(Item.captured_at.desc(), Item.id.desc()).offset(offset).limit(limit))
-    return list(rows), total, "db"
+    order = (Item.captured_at.desc(), Item.id.desc())
+    if not text_conds:
+        where = and_(*conds) if conds else True
+        total = db.scalar(select(func.count(Item.id)).where(where))
+        rows = db.scalars(select(Item).where(where).order_by(*order).offset(offset).limit(limit))
+        return list(rows), total, "db"
+    where = and_(*conds, *text_conds)
+    need = offset + limit
+    # كلمة شائعة: نتائجها الأحدث في آخر بضعة آلاف خبر، فنبحث هناك أولًا (المخطِّط يخطئ في تقدير شيوع الكلمة
+    # فيجمع كل المطابقات ثم يرتّبها: ثوانٍ مع مليون خبر). وإن لم تكفِ، فالكلمة نادرة وفهرس الثلاثيات سريع لها.
+    rows = None
+    if need <= COUNT_CAP:
+        # الاستعلام الفرعي المحدود حاجز: لا يستطيع المخطِّط دمج شرط النص فيه، فيُفحص النص في الخمسة آلاف وحدها
+        recent = select(Item.id, Item.captured_at, Item.norm).where(*conds).order_by(*order).limit(RECENT_WINDOW).subquery()
+        hits = list(db.scalars(select(recent.c.id).where(*[recent.c.norm.contains(t) for t in nq.split()])
+                               .order_by(recent.c.captured_at.desc(), recent.c.id.desc()).limit(need)))
+        if len(hits) >= need:
+            page = hits[offset:need]
+            found = {i.id: i for i in db.scalars(select(Item).where(Item.id.in_(page)))}
+            rows = [found[i] for i in page if i in found]
+    if rows is None:
+        rows = list(db.scalars(select(Item).where(where).order_by(*order).offset(offset).limit(limit)))
+    # عدّ كل المطابقات يقرأ كل صف فيه الكلمة: نعدّ حتى الحد فقط، وفوقه يُعرض «أكثر من»
+    total = db.scalar(select(func.count()).select_from(select(Item.id).where(where).limit(COUNT_CAP + 1).subquery()))
+    return rows, total, "db"
