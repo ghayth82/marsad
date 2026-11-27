@@ -45,32 +45,45 @@ def _schedule_data_upgrades(db) -> None:
     from marsad.models.monitoring import Item
     from marsad.monitor.pubtime import PUBTIME_REV, refresh_from_archive
     from marsad.rbac.service import get_setting, set_setting
+    from marsad.storage_upgrade import STORAGE_REV, pending, reorganize
 
     need_ent = int(get_setting(db, "entities_rev", 1) or 1) < ENTITIES_REV
     need_pub = int(get_setting(db, "pubtime_rev", 1) or 1) < PUBTIME_REV
-    if not (need_ent or need_pub):
+    need_store = int(get_setting(db, "storage_rev", 1) or 1) < STORAGE_REV
+    if need_store and not pending(db):  # لا ملفات بالترتيب القديم (تثبيت جديد)
+        set_setting(db, "storage_rev", STORAGE_REV)
+        db.commit()
+        need_store = False
+    if not (need_ent or need_pub or need_store):
         return
-    if db.scalar(select(Item.id).limit(1)) is None:  # قاعدة جديدة: لا شيء يُعاد
+    if db.scalar(select(Item.id).limit(1)) is None:  # قاعدة بلا مواد مرصودة: لا شيء يُعاد
         set_setting(db, "entities_rev", ENTITIES_REV)
         set_setting(db, "pubtime_rev", PUBTIME_REV)
         db.commit()
-        return
+        need_ent = need_pub = False
+        if not need_store:
+            return
 
     def run() -> None:
         log = logging.getLogger(__name__)
         s = next(get_db())
         try:
+            if need_store:  # أولًا: ترتيب الملفات بأسمائها ومجلداتها الجديدة (ما بعده يقرأ منها)
+                log.info("ترتيب الملفات المحفوظة: %s", reorganize(s))
+                set_setting(s, "storage_rev", STORAGE_REV)
+                s.commit()
             if need_pub:
                 log.info("وقت النشر من الأرشيف: %s", refresh_from_archive(s))
                 set_setting(s, "pubtime_rev", PUBTIME_REV)
                 s.commit()
-            reprocess_if_needed(s)
+            if need_ent:
+                reprocess_if_needed(s)
         except Exception:
             log.exception("فشلت ترقية البيانات")
         finally:
             s.close()
 
-    threading.Thread(target=run, name="entities-upgrade", daemon=True).start()
+    threading.Thread(target=run, name="data-upgrade", daemon=True).start()
 
 
 @asynccontextmanager

@@ -505,10 +505,11 @@ def export(did: int, user: User = Depends(current_user), db: Session = Depends(g
     data = core.export_docx(db, c, d, user)
     core.custody(db, c, user, "export", detail=f"تصدير Word للمسودة #{d.id}")
     db.commit()
-    from urllib.parse import quote
+    from marsad.core import naming
 
+    name = f"مسودة - {naming.clean(d.title or c.title) or 'بدون عنوان'} - الإصدار {d.version} - {naming.today()}.docx"
     return Response(data, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote((d.title or 'مسودة') + '.docx')}"})
+                    headers=naming.export("stories", name, data))
 
 
 @router.get("/drafts")

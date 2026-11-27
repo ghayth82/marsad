@@ -289,6 +289,66 @@ def storage_request(body: StorageIn, actor: User = Depends(manage_system), db: S
     return storage_config.storage_status()
 
 
+FOLDER_PURPOSE = {
+    "monitor": "صفحات الأخبار المؤرشفة (السنة-الشهر ثم المصدر) وتصدير المصادر",
+    "media": "الصور والفيديو التي فحصتها",
+    "audio": "التسجيلات الصوتية",
+    "cases": "وثائق التحقيقات، مجلد لكل تحقيق",
+    "claims": "تصدير الادّعاءات وClaimReview",
+    "stories": "مسودات القصص بصيغة Word",
+    "reports": "الموجز الصباحي والتقرير الأسبوعي وتصدير الإحصاءات",
+    "tools": "الصفحات التي حفظتها قبل أن تُحذف ولقطاتها",
+    "backups": "النسخ الاحتياطية اليومية لقاعدة البيانات",
+    "exports": "ملفات النقل إلى جهاز آخر",
+}
+
+
+@router.get("/storage/folders")
+def storage_folders(_: User = Depends(manage_system), db: Session = Depends(get_db)):
+    """«أين ملفاتي؟»: مجلدات المحتوى بمسارها وعدد ملفاتها وحجمها، وحالة تشفير وثائق التحقيقات."""
+    import os
+
+    from marsad.cases.core import encrypt_files
+    from marsad.core.paths import ensure_storage
+    from marsad.storage_upgrade import pending
+
+    paths = ensure_storage()
+    rows = []
+    for key, purpose in FOLDER_PURPOSE.items():
+        d = paths.dirs[key]
+        files = size = 0
+        for base, _dirs, names in os.walk(d):
+            for n in names:
+                try:
+                    size += os.path.getsize(os.path.join(base, n))
+                    files += 1
+                except OSError:
+                    pass
+        rows.append({"key": key, "name": d.name, "purpose": purpose, "path": str(d), "files": files, "bytes": size})
+    return {"root": str(paths.root), "folders": rows, "encrypt_case_files": encrypt_files(db), "reorganizing": pending(db),
+            "external_backup": paths.backups.parent != paths.root and not paths.backup_fallback}
+
+
+class CaseEncryptionIn(BaseModel):
+    on: bool
+
+
+@router.put("/storage/case-encryption")
+def storage_case_encryption(body: CaseEncryptionIn, actor: User = Depends(manage_system), db: Session = Depends(get_db)):
+    """تشفير ملفات وثائق التحقيقات على القرص أو إبقاؤها مقروءة من ويندوز. يحوّل الملفات الموجودة كلها."""
+    from marsad.audit import record
+    from marsad.storage_upgrade import set_case_encryption
+
+    try:
+        n = set_case_encryption(db, body.on)
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        raise HTTPException(422, f"تعذّر تحويل الملفات: {e}") from None
+    record(db, actor, "storage.case_encryption", "storage", "", None, {"on": body.on, "converted": n})
+    db.commit()
+    return {"encrypt_case_files": body.on, "converted": n}
+
+
 @router.delete("/storage/pending")
 def storage_cancel(actor: User = Depends(manage_system), db: Session = Depends(get_db)):
     storage_config.cancel_pending()

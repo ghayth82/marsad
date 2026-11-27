@@ -25,15 +25,48 @@ def test_creates_all_missing_dirs(tmp_path):
     for name in SUBDIRS.values():
         assert (root / name).is_dir()
     assert (p.backups / "db").is_dir() and (p.backups / "archive").is_dir()
-    assert p.exports == root.resolve() / "exports"
+    assert p.exports == root.resolve() / "ملفات النقل" and p.cases == root.resolve() / "التحقيقات"
 
 
 def test_idempotent(tmp_path):
     env = {"MARSAD_HOME": str(tmp_path)}
     ensure_storage(env)
-    (tmp_path / "data" / "exports" / "x.csv").write_text("a")
+    (tmp_path / "data" / "ملفات النقل" / "x.csv").write_text("a")
     ensure_storage(env)
-    assert (tmp_path / "data" / "exports" / "x.csv").read_text() == "a"
+    assert (tmp_path / "data" / "ملفات النقل" / "x.csv").read_text() == "a"
+
+
+def test_old_english_folders_move_to_arabic_names_once(tmp_path):
+    """مجلدات الإصدار السابق تُنقل محتوياتها إلى الأسماء العربية دون استبدال ملف موجود، ويُزال القديم إن فرغ."""
+    env = {"MARSAD_HOME": str(tmp_path)}
+    data = tmp_path / "data"
+    (data / "backups" / "db").mkdir(parents=True)
+    (data / "backups" / "db" / "marsad-20261120-010000.marsad").write_text("old")
+    (data / "exports").mkdir()
+    (data / "exports" / "marsad-20261121-120000.marsad").write_text("t")
+    (data / "النسخ الاحتياطي" / "db").mkdir(parents=True)
+    (data / "النسخ الاحتياطي" / "db" / "keep.marsad").write_text("new")
+    p = ensure_storage(env)
+    assert (p.backups / "db" / "marsad-20261120-010000.marsad").read_text() == "old"
+    assert (p.backups / "db" / "keep.marsad").read_text() == "new"
+    assert (p.exports / "marsad-20261121-120000.marsad").read_text() == "t"
+    assert not (data / "backups").exists() and not (data / "exports").exists()
+
+
+def test_file_names_say_what_is_inside(tmp_path, monkeypatch):
+    from datetime import date
+
+    from marsad.core import naming
+
+    monkeypatch.setenv("MARSAD_HOME", str(tmp_path))
+    n = naming.file_name("خبرني", 'تأجيل الامتحانات: "أسبوعين" / عاجل؟ <b>', "ab12cd34" + "0" * 56, date(2026, 11, 27), ".html.gz")
+    assert n == "خبرني - تأجيل الامتحانات أسبوعين عاجل؟ b - ab12cd34 - 2026-11-27.html.gz"
+    assert len(naming.clean("كلمة " * 60)) <= naming.TITLE_MAX and naming.clean("CON") == "CON_" and naming.clean(" a - b. ") == "a b"
+    rel = naming.save("media", "2026-11", name="صورة - جسر - 9f3e11aa - 2026-11-27.jpg", raw=b"one")
+    assert rel == "الصور والفيديو/2026-11/صورة - جسر - 9f3e11aa - 2026-11-27.jpg"
+    assert naming.save("media", "2026-11", name="صورة - جسر - 9f3e11aa - 2026-11-27.jpg", raw=b"one") == rel  # المحتوى نفسه: ملف واحد
+    other = naming.save("media", "2026-11", name="صورة - جسر - 9f3e11aa - 2026-11-27.jpg", raw=b"two")
+    assert other.endswith("2026-11-27 (2).jpg")  # اسم مطابق ومحتوى مختلف: لا يُستبدل
 
 
 def test_env_var_expansion(tmp_path, monkeypatch):
@@ -54,7 +87,7 @@ def test_backup_falls_back_when_disk_missing(tmp_path):
     missing = tmp_path / "unplugged_drive" / "MarsadBackups"
     p = ensure_storage({"MARSAD_HOME": str(tmp_path), "MARSAD_BACKUP_DIR": str(missing)})
     assert p.backup_fallback
-    assert p.backups == (tmp_path / "data" / "backups").resolve()
+    assert p.backups == (tmp_path / "data" / "النسخ الاحتياطي").resolve()
     assert not missing.parent.exists()  # لم نُنشئ «قرصًا» وهميًا
     assert p.warnings
 

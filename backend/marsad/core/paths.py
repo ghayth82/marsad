@@ -24,16 +24,27 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Mapping
 
+# مجلدات المحتوى بأسماء عربية حسب الوظيفة (يتصفحها المستخدم من ويندوز)، والمجلدات التقنية بأسماء
+# لاتينية لأن بعض الأدوات المضمَّنة (PostgreSQL، llama.cpp) لا تتعامل جيدًا مع مسارات غير لاتينية على ويندوز.
 SUBDIRS: dict[str, str] = {
-    "archive": "archive",  # أرشيف MinIO: الصفحات المؤرشفة والصور والفيديو والوثائق
-    "exports": "exports",  # تصدير Word وCSV وClaimReview
-    "reports": "reports",  # الموجز الصباحي والتقرير الأسبوعي
-    "backups": "backups",  # النسخ الاحتياطي الافتراضي (إن لم يُحدَّد قرص خارجي)
+    "monitor": "الرصد",  # صفحات الأخبار المؤرشفة: السنة-الشهر/المصدر، وتصدير المصادر
+    "media": "الصور والفيديو",  # ما يُفحص في مختبر الصور والفيديو
+    "audio": "الصوت",  # التسجيلات
+    "cases": "التحقيقات",  # مجلد لكل تحقيق فيه وثائقه
+    "claims": "الشائعات والادعاءات",  # تصدير الادّعاءات وClaimReview
+    "stories": "القصص",  # مسودات القصص بصيغة Word
+    "reports": "التقارير",  # الموجز الصباحي والتقرير الأسبوعي والإحصاءات
+    "tools": "أدوات التحقق",  # الصفحات المحفوظة قبل حذفها ولقطاتها
+    "backups": "النسخ الاحتياطي",  # النسخ الاحتياطي الافتراضي (إن لم يُحدَّد قرص خارجي)
+    "exports": "ملفات النقل",  # ملف النقل إلى جهاز آخر (.marsad)
+    "archive": "archive",  # داخلي: ملفات مشتقة (لقطات الفيديو وخرائط التحليل) وما لم يُرتَّب بعد من إصدارات سابقة
     "logs": "logs",  # سجلات التشغيل
     "uploads": "uploads",  # ملفات يرفعها المستخدم قبل معالجتها
     "tmp": "tmp",  # ملفات مؤقتة تُمسح دوريًا
     "models": "models",  # النماذج المحلية المجانية (لا تُنسخ احتياطيًا: تُنزَّل من جديد من نسخ غيث)
 }
+# أسماء مجلدات الإصدارات السابقة ← المفتاح الجديد؛ تُنقل محتوياتها مرة واحدة عند التشغيل
+LEGACY_DIRS: dict[str, str] = {"backups": "backups", "exports": "exports", "reports": "reports"}
 BACKUP_SUBDIRS = ("db", "archive")
 DEFAULT_DATA_DIR = "./data"
 ROOT_MARKER = ".marsad-data"  # يميّز مجلد بيانات مرصد عن أي مجلد آخر
@@ -147,6 +158,43 @@ def _resolve_backups(env: Mapping[str, str], root: Path) -> tuple[Path, bool, li
     ]
 
 
+def _move_legacy_dirs(root: Path, skip: set[str] = frozenset()) -> None:
+    """ينقل محتويات مجلدات الإصدارات السابقة (backups، exports، reports) إلى أسمائها العربية.
+    لا يستبدل ملفًا موجودًا، ولا يحذف إلا المجلد القديم بعد أن يفرغ."""
+    import shutil
+
+    for old_name, key in LEGACY_DIRS.items():
+        old, new = root / old_name, root / SUBDIRS[key]
+        if key in skip or not old.is_dir():
+            continue
+        try:
+            new.mkdir(parents=True, exist_ok=True)
+            for child in list(old.iterdir()):
+                dest = new / child.name
+                if dest.exists():
+                    if child.is_dir() and dest.is_dir():  # مثل backups/db: تُدمج الملفات
+                        for f in list(child.iterdir()):
+                            if not (dest / f.name).exists():
+                                shutil.move(str(f), str(dest / f.name))
+                        if not any(child.iterdir()):
+                            child.rmdir()
+                    continue
+                shutil.move(str(child), str(dest))
+            if not any(old.iterdir()):
+                old.rmdir()
+        except OSError:
+            pass  # ملف مفتوح أو قرص للقراءة فقط: يبقى القديم ويُعاد المحاولة في التشغيل التالي
+
+
+def data_file(rel: str) -> Path:
+    """المسار الكامل لملف محفوظ بمساره النسبي في قاعدة البيانات.
+    المسارات الجديدة نسبةً إلى جذر البيانات؛ مسارات الإصدارات السابقة (pages/، media/، cases/، snapshots/) نسبةً إلى archive."""
+    paths = ensure_storage()
+    if rel.split("/", 1)[0] in ("pages", "media", "cases", "snapshots"):
+        return paths.archive / rel
+    return paths.root / rel
+
+
 def ensure_storage(env: Mapping[str, str] | None = None) -> StoragePaths:
     """يحدد جذر البيانات ويُنشئ كل المجلدات الناقصة. يُستدعى عند بدء كل خدمة."""
     env = os.environ if env is None else env
@@ -154,6 +202,9 @@ def ensure_storage(env: Mapping[str, str] | None = None) -> StoragePaths:
     ensure_writable(root)
     (root / ROOT_MARKER).touch(exist_ok=True)
 
+    # مجلد النسخ المحدَّد صراحةً (قرص خارجي، أو /backups في الخادم) لا يُمس
+    external = bool(env.get("MARSAD_BACKUP_DIR") or load_storage_config(env).get("backup_dir"))
+    _move_legacy_dirs(root, skip={"backups"} if external else set())
     dirs = {}
     for key, name in SUBDIRS.items():
         d = root / name

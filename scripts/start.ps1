@@ -12,7 +12,8 @@ $AppHome = Split-Path -Parent $PSScriptRoot
 Set-Location $AppHome
 $ConfigDir = Join-Path $AppHome 'config'
 $Utf8 = New-Object Text.UTF8Encoding $false
-$Subdirs = 'archive','exports','reports','backups','logs','uploads','tmp'
+# مطابقة لـ SUBDIRS في backend/marsad/core/paths.py (مجلدات المحتوى عربية حسب الوظيفة، والتقنية لاتينية)
+$Subdirs = 'الرصد','الصور والفيديو','الصوت','التحقيقات','الشائعات والادعاءات','القصص','التقارير','أدوات التحقق','النسخ الاحتياطي','ملفات النقل','archive','logs','uploads','tmp','models'
 $Marker = '.marsad-data'
 
 function Say($m)  { Write-Host $m }
@@ -126,7 +127,7 @@ try { Assert-Writable $DataRoot } catch { Die "لا يمكن إنشاء مجلد
 New-Item -ItemType File -Force -Path (Join-Path $DataRoot $Marker) | Out-Null
 foreach ($d in $Subdirs) { New-Item -ItemType Directory -Force -Path (Join-Path $DataRoot $d) | Out-Null }
 
-$BackupRoot = Join-Path $DataRoot 'backups'; $fallback = $false; $warnings = @()
+$BackupRoot = Join-Path $DataRoot 'النسخ الاحتياطي'; $fallback = $false; $warnings = @()
 if ($cfg.backup_dir) {
   $t = Resolve-MarsadPath $cfg.backup_dir
   if (Test-DiskAvailable $t) {

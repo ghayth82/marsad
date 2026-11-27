@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from marsad import crypto
 from marsad.analysis.core import extract_entities
-from marsad.core.paths import ensure_storage
+from marsad.core.paths import data_file
 from marsad.db import utcnow
 from marsad.models import User
 from marsad.models.cases import Case, CaseDocument, CaseMember, CaseRecord, CustodyLog, Draft, SanctionEntry
@@ -165,8 +165,43 @@ def _kind(raw: bytes, filename: str) -> str:
     raise CaseError("نوع الملف غير مدعوم: PDF أو Word أو Excel أو صورة أو تسجيل أو نص")
 
 
+ENC_SETTING = "cases.encrypt_files"  # إعداد المدير: تشفير ملفات وثائق التحقيقات على القرص (الافتراضي: لا)
+ENC_SUFFIXES = (".enc", ".bin")  # ‎.bin صيغة الإصدارات السابقة
+
+
+def encrypt_files(db: Session) -> bool:
+    from marsad.rbac.service import get_setting
+
+    return bool(get_setting(db, ENC_SETTING, False))
+
+
+def case_folder(db: Session, c: Case) -> str:
+    """مجلد التحقيق باسمه؛ وإن تكرر الاسم في تحقيق أقدم أُلحق رقمه."""
+    from marsad.core import naming
+
+    name = naming.clean(c.title, 80) or f"تحقيق {c.id}"
+    twins = [o for o in db.scalars(select(Case).where(Case.id < c.id)) if (naming.clean(o.title, 80) or "") == name]
+    return f"{name} ({c.id})" if twins else name
+
+
+def doc_name(number: int, filename: str, sha: str, when: datetime | None, encrypted: bool) -> str:
+    from marsad.core import naming
+
+    ext = Path(filename).suffix.lower()[:10]
+    return naming.file_name(f"وثيقة {number:02d}", Path(filename).stem or "بدون اسم", sha, when, ext) + (".enc" if encrypted else "")
+
+
+def write_doc_file(db: Session, c: Case, number: int, filename: str, sha: str, when: datetime | None, raw: bytes) -> str:
+    """يكتب ملف الوثيقة في «التحقيقات/اسم التحقيق» ويُرجع مساره النسبي. يُشفَّر إن فعّل المدير التشفير."""
+    from marsad.core import naming
+
+    on = encrypt_files(db)
+    return naming.save("cases", case_folder(db, c), name=doc_name(number, filename, sha, when, on),
+                       raw=_fernet(c).encrypt(raw) if on else raw)
+
+
 def doc_file(d: CaseDocument) -> Path:
-    return ensure_storage().archive / d.path
+    return data_file(d.path)
 
 
 def add_document(db: Session, c: Case, user: User, raw: bytes, filename: str) -> CaseDocument:
@@ -179,11 +214,8 @@ def add_document(db: Session, c: Case, user: User, raw: bytes, filename: str) ->
     dup = db.scalars(select(CaseDocument).where(CaseDocument.case_id == c.id, CaseDocument.sha256 == sha)).first()
     if dup:
         raise CaseError(f"الوثيقة نفسها موجودة في القضية (وثيقة {dup.number})")
-    rel = f"cases/{c.id}/{sha}.bin"
-    p = ensure_storage().archive / rel
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_bytes(_fernet(c).encrypt(raw))
     n = (db.scalars(select(CaseDocument.number).where(CaseDocument.case_id == c.id).order_by(CaseDocument.number.desc())).first() or 0) + 1
+    rel = write_doc_file(db, c, n, filename, sha, utcnow(), raw)
     d = CaseDocument(case_id=c.id, number=n, filename_enc=enc(c, Path(filename).name[:300]), kind=kind, size=len(raw), sha256=sha,
                      path=rel, added_by=user.id)
     db.add(d)
@@ -194,7 +226,9 @@ def add_document(db: Session, c: Case, user: User, raw: bytes, filename: str) ->
 
 
 def read_document(c: Case, d: CaseDocument) -> bytes:
-    raw = _fernet(c).decrypt(doc_file(d).read_bytes())
+    raw = doc_file(d).read_bytes()
+    if d.path.endswith(ENC_SUFFIXES):
+        raw = _fernet(c).decrypt(raw)
     if hashlib.sha256(raw).hexdigest() != d.sha256:
         raise CaseError("بصمة الوثيقة لا تطابق المحفوظة: الملف تغيّر على القرص", 409)
     return raw

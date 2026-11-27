@@ -24,7 +24,7 @@ from PIL import ExifTags, Image, ImageChops, ImageOps
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from marsad.core.paths import ensure_storage
+from marsad.core.paths import data_file, ensure_storage
 from marsad.db import utcnow
 from marsad.models.labs import MediaCheck, MediaFile
 
@@ -74,6 +74,7 @@ def hamming(a: str, b: str) -> int:
 # ---------- التخزين ----------
 
 def _store(raw: bytes, ext: str) -> tuple[str, str]:
+    """ملف مشتق داخلي (لقطة من فيديو، خريطة تحليل الضغط): يُحفظ ببصمته في archive ولا يتصفحه المستخدم."""
     sha = hashlib.sha256(raw).hexdigest()
     rel = f"media/{sha[:2]}/{sha}{ext}"
     p = ensure_storage().archive / rel
@@ -83,8 +84,30 @@ def _store(raw: bytes, ext: str) -> tuple[str, str]:
     return rel, sha
 
 
+KIND_LABEL = {"image": "صورة", "video": "فيديو", "audio": "تسجيل"}
+
+
+def user_name(kind: str, filename: str, sha: str, when: datetime | None, ext: str) -> tuple[str, str, str]:
+    """(مجلد الوظيفة، مجلد الشهر، اسم الملف) لملف رفعه المستخدم أو جُلب من خبر."""
+    from marsad.core import naming
+
+    when = when or utcnow()
+    title = Path(filename).stem if filename else ""
+    return ("audio" if kind == "audio" else "media", f"{when:%Y-%m}",
+            naming.file_name(KIND_LABEL.get(kind, "ملف"), title or "بدون اسم", sha, when, ext))
+
+
+def _store_original(raw: bytes, kind: str, filename: str, ext: str, when: datetime | None) -> tuple[str, str]:
+    """أصل رفعه المستخدم: يُحفظ في «الصور والفيديو» أو «الصوت» باسم يدل عليه."""
+    from marsad.core import naming
+
+    sha = hashlib.sha256(raw).hexdigest()
+    key, month, name = user_name(kind, filename, sha, when, ext)
+    return naming.save(key, month, name=name, raw=raw), sha
+
+
 def abs_path(m: MediaFile) -> Path:
-    return ensure_storage().archive / m.path
+    return data_file(m.path)
 
 
 def _ffprobe(path: Path) -> dict:
@@ -127,7 +150,7 @@ def ingest(db: Session, raw: bytes, filename: str = "", *, origin: str = "upload
     kind, mime, ext = sniff(raw, filename)
     if len(raw) > (IMAGE_MAX if kind == "image" else VIDEO_MAX):
         raise LabError("الملف أكبر من المسموح")
-    rel, sha = _store(raw, ext)
+    rel, sha = _store_original(raw, kind, filename, ext, seen_at)
     m = MediaFile(sha256=sha, kind=kind, mime=mime, filename=Path(filename).name[:300], size=len(raw), path=rel, origin=origin,
                   url=url, uploaded_by=user_id, source_item_id=item_id, seen_at=seen_at or utcnow())
     if kind == "image":

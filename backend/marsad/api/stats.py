@@ -84,8 +84,11 @@ def impact_csv(days: int = 30, start: str | None = None, end: str | None = None,
         w.writerow([k, "" if v is None else v, " ".join(map(str, ids)) if ids else ""])
     w.writerow([])
     w.writerow(["الطريقة", imp["method"], ""])
-    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": 'attachment; filename="marsad-impact.csv"'})
+    from marsad.core import naming
+
+    body = "﻿" + buf.getvalue()
+    return Response(body, media_type="text/csv; charset=utf-8",
+                    headers=naming.export("reports", f"تصدير - أثر التحقق - {naming.today()}.csv", body))
 
 
 @router.get("/impact/print")

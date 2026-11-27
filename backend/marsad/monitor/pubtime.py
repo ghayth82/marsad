@@ -212,14 +212,14 @@ def refresh_from_archive(db, outlet_id: int | None = None, recheck_text: bool = 
 
     from sqlalchemy import select
 
-    from marsad.core.paths import ensure_storage
+    from marsad.core.paths import data_file, ensure_storage
     from marsad.models.monitoring import Item
     from marsad.monitor.service import published_date_only
 
     from marsad.models.monitoring import Outlet
 
     countries = {o.id: o.country for o in db.scalars(select(Outlet))}
-    root, fixed, seen = ensure_storage().archive, 0, 0
+    fixed, seen = 0, 0
     q = select(Item).where(Item.source_id.is_not(None))
     if outlet_id:
         q = q.where(Item.outlet_id == outlet_id)
@@ -228,11 +228,11 @@ def refresh_from_archive(db, outlet_id: int | None = None, recheck_text: bool = 
         if it.published_at and not published_date_only(it) and not (recheck_text and from_text):
             continue
         v = next((x for x in it.versions if x.archive_path), None)
-        if not v or not (root / v.archive_path).exists():
+        if not v or not data_file(v.archive_path).exists():
             continue
         seen += 1
         try:
-            raw = gzip.decompress((root / v.archive_path).read_bytes())
+            raw = gzip.decompress(data_file(v.archive_path).read_bytes())
         except OSError:
             continue
         d, how = from_page(raw, it.title, countries.get(it.outlet_id, ""), now=it.captured_at)

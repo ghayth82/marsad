@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from marsad.api.deps import current_user, require
 from marsad.audit import record
-from marsad.core.paths import ensure_storage
+from marsad.core.paths import data_file, ensure_storage
 from marsad.db import get_db
 from marsad.models import User
 from marsad.models.analysis import Entity, Statement
@@ -394,10 +394,10 @@ def _snap_file(db: Session, sid: int, user: User, which: str) -> FileResponse:
     rel = s.html_path if which == "html" else s.screenshot_path
     if not rel:
         raise HTTPException(404, "غير موجود")
-    path = ensure_storage().archive / rel
+    path = data_file(rel)
     media = "text/plain; charset=utf-8" if which == "html" else "image/png"
     # الصفحة المؤرشفة تُعرض نصًا خامًا أو تُنزَّل، ولا تُشغَّل داخل البرنامج
-    return FileResponse(path, media_type=media, filename=f"snapshot-{s.id}.{'html' if which == 'html' else 'png'}",
+    return FileResponse(path, media_type=media, filename=path.name,
                         content_disposition_type="attachment" if which == "html" else "inline",
                         headers={"Content-Security-Policy": "default-src 'none'; sandbox", "X-Content-Type-Options": "nosniff"})
 

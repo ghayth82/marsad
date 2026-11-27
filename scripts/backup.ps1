@@ -16,8 +16,9 @@ docker compose --env-file .env exec -T postgres pg_dump -U marsad -d marsad -Fc 
 if ($LASTEXITCODE -ne 0) { Write-Host 'خطأ: فشل نسخ قاعدة البيانات (هل الخدمات تعمل؟)' -ForegroundColor Red; exit 1 }
 Write-Host "قاعدة البيانات -> $BackupRoot\db\marsad-$stamp.dump"
 
-if ($BackupRoot -ne (Join-Path $DataRoot 'backups')) {
-  robocopy (Join-Path $DataRoot 'archive') (Join-Path $BackupRoot 'archive') /MIR /R:2 /W:2 /NFL /NDL /NJH /NJS /NP | Out-Null
+# مرآة لملفات المحتوى (مجلدات الوظائف العربية وarchive) إن كان مجلد النسخ خارج مجلد البيانات
+if (-not $BackupRoot.StartsWith($DataRoot, [StringComparison]::OrdinalIgnoreCase)) {
+  robocopy $DataRoot (Join-Path $BackupRoot 'archive') /MIR /XD db search logs tmp uploads models /R:2 /W:2 /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { Write-Host 'تنبيه: نسخ الأرشيف لم يكتمل' -ForegroundColor Yellow } else { Write-Host "الأرشيف -> $BackupRoot\archive" }
 }
 # الإبقاء على آخر 14 نسخة

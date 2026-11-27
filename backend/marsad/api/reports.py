@@ -127,25 +127,10 @@ def report(rid: int, _: User = Depends(require("monitor.view")), db: Session = D
 
 @router.get("/reports/{rid}/print")
 def print_report(rid: int, _: User = Depends(require("monitor.view")), db: Session = Depends(get_db)):
-    from html import escape
-
     r = db.get(Report, rid)
     if r is None:
         raise HTTPException(404, "غير موجود")
-    c = r.content
-    li = lambda rows, f: "".join(f"<li>{f(x)}</li>" for x in rows) or "<li>لا شيء</li>"  # noqa: E731
-    title = "الموجز الصباحي" if r.kind == "morning" else "التقرير الأسبوعي"
-    html = f"""<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>{title} {r.local_date}</title>
-<style>body{{font-family:system-ui,'Noto Sans Arabic',sans-serif;max-width:820px;margin:24px auto;line-height:1.7}}h2{{margin-top:22px}}
-@media print{{button{{display:none}}}}</style><button onclick="print()">طباعة أو حفظ PDF</button>
-<h1>{title} · {escape(r.local_date)}</h1><p>{c['items']} مادة جديدة · {c['claims']['new_count']} ادّعاء · {len(c['claims']['verdicts'])} حكم معتمد ·
-{c['edited_or_deleted']} مادة عُدّلت أو حُذفت</p>
-<h2>القصص الصاعدة</h2><ul>{li(c['rising_stories'], lambda s: f"{escape(s['title'])} — {s['outlets']} مصادر")}</ul>
-<h2>شائعات عادت</h2><ul>{li(c['claims']['returns'], lambda x: escape(x['text']))}</ul>
-<h2>أحكام معتمدة</h2><ul>{li(c['claims']['verdicts'], lambda v: f"{escape(v['label'])} ({escape(v['grade'])}): {escape(v['text'])}")}</ul>
-<h2>ادّعاءات جديدة</h2><ul>{li(c['claims']['new'], lambda x: escape(x['text']))}</ul>
-<h2>المصادر</h2><p>{c['sources']['ok']} تعمل · {c['sources']['error']} متوقفة</p><ul>{li(c['sources']['broken'], lambda s: f"{escape(s['title'])}: {escape(s['error'])}")}</ul>
-</html>"""
+    html = core.report_html(r)
     return HTMLResponse(html, headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'"})
 
 

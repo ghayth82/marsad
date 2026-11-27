@@ -267,7 +267,13 @@ def stats(days: int = 30, _: User = Depends(viewer), db: Session = Depends(get_d
 @router.get("/claims/export/claimreview")
 def export_claimreview(request: Request, _: User = Depends(export), db: Session = Depends(get_db)):
     out = [x for c in db.scalars(select(Claim)) if (x := core.claimreview(db, c, str(request.base_url), _org(db)))]
-    return JSONResponse(out, headers={"Content-Disposition": 'attachment; filename="marsad-claimreview.json"'})
+    import json
+
+    from marsad.core import naming
+
+    body = json.dumps(out, ensure_ascii=False, indent=1)
+    return Response(body, media_type="application/json",
+                    headers=naming.export("claims", f"تصدير - ClaimReview - {naming.today()}.json", body))
 
 
 @router.get("/claims/export/csv")
@@ -281,5 +287,8 @@ def export_csv(_: User = Depends(export), db: Session = Depends(get_db)):
         w.writerow([c.id, c.text, c.speaker, c.first_seen_at.isoformat() if c.first_seen_at else "", len(c.appearances),
                     sum(a.kind == "return" for a in c.appearances), c.status, v.label if v else "", v.evidence_grade if v else "",
                     v.explanation if v else "", v.approved_at.isoformat() if v and v.approved_at else ""])
-    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": 'attachment; filename="marsad-claims.csv"'})
+    from marsad.core import naming
+
+    body = "﻿" + buf.getvalue()
+    return Response(body, media_type="text/csv; charset=utf-8",
+                    headers=naming.export("claims", f"تصدير - الادعاءات - {naming.today()}.csv", body))

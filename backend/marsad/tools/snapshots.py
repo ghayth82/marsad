@@ -11,7 +11,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from marsad.core.paths import ensure_storage
+from marsad.core import naming
 from marsad.db import utcnow
 from marsad.models import User
 from marsad.models.tools import Snapshot
@@ -54,6 +54,17 @@ def _wayback(url: str) -> tuple[str, str]:
     return "failed", f"رفض الطلب ({r.status_code})"
 
 
+SNAP_DIR = "صفحات محفوظة"
+
+
+def snap_name(s: Snapshot, sha: str, ext: str) -> str:
+    """«صفحة - العنوان أو اسم الموقع - البصمة - التاريخ»؛ واللقطة «لقطة - …»."""
+    from urllib.parse import urlsplit
+
+    title = s.title or urlsplit(s.final_url or s.url).netloc
+    return naming.file_name("لقطة" if ext == ".png" else "صفحة", title, sha, s.created_at, ext)
+
+
 def archive(db: Session, user: User | None, url: str, *, wayback: bool = False, claim_id: int | None = None,
             case_id: int | None = None) -> Snapshot:
     from marsad.monitor.fetch import FetchError, get
@@ -69,22 +80,15 @@ def archive(db: Session, user: User | None, url: str, *, wayback: bool = False, 
         raw = r.content
         s.http_status, s.final_url = r.status_code, str(r.url)[:1000]
         s.sha256 = hashlib.sha256(raw).hexdigest()
-        root = ensure_storage().archive
-        rel = f"snapshots/{now:%Y/%m}/{s.sha256}.html"
-        p = root / rel
-        if not p.exists():
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_bytes(raw)
-        s.html_path = rel
         if "html" in (r.headers.get("content-type") or "html"):
             ex = extract(raw, url)
             s.title, s.text = ex["title"][:2000], ex["text"]
+        s.html_path = naming.save("tools", SNAP_DIR, f"{now:%Y-%m}", name=snap_name(s, s.sha256, ".html"), raw=raw)
         shot = _screenshot(url)
         if shot:
             sh = hashlib.sha256(shot).hexdigest()
-            srel = f"snapshots/{now:%Y/%m}/{sh}.png"
-            (root / srel).write_bytes(shot)
-            s.screenshot_path, s.screenshot_sha256 = srel, sh
+            s.screenshot_path = naming.save("tools", SNAP_DIR, f"{now:%Y-%m}", name=snap_name(s, sh, ".png"), raw=shot)
+            s.screenshot_sha256 = sh
     except FetchError as e:
         s.status, s.error = "error", str(e)
     if wayback and s.status == "ok":

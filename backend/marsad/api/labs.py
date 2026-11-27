@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from marsad.api.deps import require
 from marsad.audit import record
-from marsad.core.paths import ensure_storage
+from marsad.core.paths import data_file, ensure_storage
 from marsad.db import get_db
 from marsad.labs import media as lab  # noqa: E402
 from marsad.labs import sun
@@ -150,8 +150,13 @@ def raw_file(sha: str, _: User = Depends(use), db: Session = Depends(get_db)):
     """ملف من الأرشيف (الأصل، أو لقطة، أو خريطة تحليل الضغط) ببصمته."""
     if len(sha) != 64 or not all(c in "0123456789abcdef" for c in sha):
         raise HTTPException(404, "غير موجود")
-    root = ensure_storage().archive / "media" / sha[:2]
-    hits = list(root.glob(f"{sha}.*")) if root.exists() else []
+    from marsad.models.labs import MediaFile
+
+    m = db.scalars(select(MediaFile).where(MediaFile.sha256 == sha)).first()
+    hits = [lab.abs_path(m)] if m and lab.abs_path(m).exists() else []
+    if not hits:  # ملف مشتق داخلي (خريطة تحليل، لقطة) محفوظ ببصمته
+        root = ensure_storage().archive / "media" / sha[:2]
+        hits = list(root.glob(f"{sha}.*")) if root.exists() else []
     if not hits:
         raise HTTPException(404, "غير موجود")
     return FileResponse(hits[0], headers={"X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'"})

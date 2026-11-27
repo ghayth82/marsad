@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from marsad import search as search_mod
 from marsad.api.deps import require
 from marsad.audit import record
-from marsad.core.paths import ensure_storage
+from marsad.core.paths import data_file, ensure_storage
 from marsad.db import get_db, utcnow
 from marsad.models import User
 from marsad.models.monitoring import Item, ItemVersion, Outlet, Source
@@ -301,8 +301,11 @@ def export_sources(_: User = Depends(view_sources), db: Session = Depends(get_db
     for s in db.scalars(select(Source).order_by(Source.outlet_id, Source.id)):
         w.writerow([s.outlet.name, s.outlet.kind, s.outlet.country, s.url, s.kind, s.read_url, s.title,
                     s.check_minutes, "|".join(s.tags), int(s.active)])
-    return Response("﻿" + buf.getvalue(), media_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": 'attachment; filename="marsad-sources.csv"'})
+    from marsad.core import naming
+
+    body = "﻿" + buf.getvalue()
+    return Response(body, media_type="text/csv; charset=utf-8",
+                    headers=naming.export("monitor", f"تصدير - المصادر - {naming.today()}.csv", body))
 
 
 class ImportIn(BaseModel):
@@ -387,7 +390,7 @@ def archived(iid: int, version: int, _: User = Depends(view_items), db: Session 
     v = db.scalar(select(ItemVersion).where(ItemVersion.item_id == iid, ItemVersion.version == version)) or _404()
     if not v.archive_path:
         raise HTTPException(404, "لا توجد نسخة مؤرشفة لهذه النسخة")
-    path = ensure_storage().archive / v.archive_path
+    path = data_file(v.archive_path)
     raw = gzip.decompress(path.read_bytes())
     return Response(raw, media_type="text/html; charset=utf-8", headers={
         "Content-Security-Policy": "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'",

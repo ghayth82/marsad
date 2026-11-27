@@ -99,6 +99,21 @@ def main() -> int:
         text = "\n".join(p.text for p in docx.Document(path).paragraphs)
         assert "SHA-256" in text and "[وثيقة" not in text, text[:500]
         page.screenshot(path=SHOTS / "62-story-builder.png", full_page=True)
+        # «أين ملفاتي؟»: مجلد لكل وظيفة باسمه العربي، ومسودة Word المصدَّرة حُفظت في «القصص»، وخيار تشفير الوثائق
+        page.goto(f"{BASE}/admin/settings")
+        card = page.locator("section.card", has=page.get_by_role("heading", name="أين ملفاتي؟"))
+        expect(card.locator(".row", has_text="التحقيقات")).to_contain_text("ملف")
+        expect(card.locator(".row", has_text="القصص")).to_contain_text("1 ملف")
+        box = card.get_by_label("تشفير وثائق التحقيقات")
+        expect(box).not_to_be_checked()  # الافتراضي: مقروءة من ويندوز
+        page.once("dialog", lambda d: d.accept())
+        box.click()
+        expect(card.get_by_role("status")).to_contain_text("فُعّل التشفير")
+        expect(box).to_be_checked()
+        page.screenshot(path=SHOTS / "63-where-are-my-files.png", full_page=True)
+        page.once("dialog", lambda d: d.accept())
+        box.click()
+        expect(card.get_by_role("status")).to_contain_text("أُلغي التشفير")
         browser.close()
     print("E2E التحقيق وبناء القصة: كل الخطوات نجحت")
     return 0

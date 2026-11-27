@@ -31,13 +31,15 @@ def content_hash(title: str, text: str) -> str:
     return hashlib.sha256((" ".join(title.split()) + "\n" + " ".join(text.split())).encode()).hexdigest()
 
 
-def archive_html(raw: bytes, captured: datetime) -> tuple[str, str]:
-    """يحفظ الصفحة كما وصلت (مضغوطة) في الأرشيف، ويُرجع المسار النسبي وبصمة SHA-256."""
+def archive_html(raw: bytes, captured: datetime, outlet: str = "", title: str = "") -> tuple[str, str]:
+    """يحفظ الصفحة كما وصلت (مضغوطة) في «الرصد/السنة-الشهر/المصدر» باسم يدل عليها، ويُرجع المسار النسبي وبصمة SHA-256."""
+    from marsad.core import naming
+
     sha = hashlib.sha256(raw).hexdigest()
-    rel = f"pages/{captured:%Y/%m}/{sha}.html.gz"
-    path = ensure_storage().archive / rel
+    src_name = naming.clean(outlet, 40) or "مصدر غير معروف"
+    rel, path = naming.place("monitor", f"{captured:%Y-%m}", src_name,
+                             name=naming.file_name(src_name, title or "بدون عنوان", sha, captured, ".html.gz"))
     if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(gzip.compress(raw))
     return rel, sha
 
@@ -114,10 +116,10 @@ def store_entry(db: Session, src: Source, e: dict, fetch_full: bool = True) -> I
     if fetch_full and not e.get("full") and src.kind != "gdelt":
         try:
             r = fetch.get(e["url"])
-            archive = archive_html(r.content, now)
             x = extract(r.content, e["url"])
             text = x["text"] or text or e.get("summary", "")
             title = title or x["title"]
+            archive = archive_html(r.content, now, src.outlet.name if src.outlet else "", title)
             author = author or x["author"]
             if not published or date_only:  # الساعة من صفحة الخبر نفسها تتقدم على تاريخ الخريطة
                 from marsad.monitor import pubtime
@@ -245,7 +247,7 @@ def recheck_item(db: Session, item: Item) -> str:
     item.title, item.text, item.content_hash = title, text, h
     item.status = "edited" if change == "edit" else ("edited" if item.version > 1 else "live")
     item.version += 1
-    _version(item, change, archive_html(r.content, now), now)
+    _version(item, change, archive_html(r.content, now, item.source.outlet.name if item.source and item.source.outlet else "", title), now)
     _analyze(db, item)
     _index(item)
     return change

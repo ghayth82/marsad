@@ -35,7 +35,8 @@ from marsad.db import Base
 
 FORMAT = 1
 SKIP_TABLES = {"session_tokens", "alembic_version"}
-FILE_DIRS = ("archive", "uploads", "reports")
+# مفاتيح مجلدات المحتوى (الأسماء على القرص من paths.SUBDIRS)؛ archive يشمل ملفات إصدارات سابقة لم تُرتَّب
+FILE_DIRS = ("archive", "uploads", "reports", "monitor", "media", "audio", "cases", "claims", "stories", "tools")
 # الحقول المشفّرة بالسر الرئيسي: (الجدول، العمود)، وإعدادات النظام بمفاتيحها
 ENCRYPTED_COLUMNS = {("engines", "api_key_enc"), ("cases", "key_wrapped")}
 

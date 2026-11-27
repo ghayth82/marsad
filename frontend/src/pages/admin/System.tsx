@@ -19,7 +19,7 @@ export function Settings() {
   const can = useCan();
   return (
     <div className="cols">
-      <div className="grow">{can("system.manage") && <StorageCard />}</div>
+      <div className="grow">{can("system.manage") && <><StorageCard /><FilesCard /></>}</div>
       <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Backups /><Transfer /><TelegramBot /><FactCheckKey /><ReportSchedule /><Sanctions /></>}</div>
       {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
@@ -61,7 +61,7 @@ function StorageCard() {
     <section className="card">
       <h2>التخزين</h2>
       <div className="row"><span className="f">مجلد البيانات<br /><code dir="ltr">{st.host?.data.path ?? st.data_dir}</code></span>{st.host && <span className="pill p-n">{st.host.data.free_gb} غيغابايت فارغة</span>}</div>
-      <div className="row"><span className="f">النسخ الاحتياطي<br /><code dir="ltr">{st.host?.backups.path ?? (st.backup_dir || "data/backups")}</code></span>{st.host && <span className="pill p-n">{st.host.backups.free_gb} غيغابايت فارغة</span>}</div>
+      <div className="row"><span className="f">النسخ الاحتياطي<br /><code dir="ltr">{st.host?.backups.path ?? (st.backup_dir || "النسخ الاحتياطي (داخل مجلد البيانات)")}</code></span>{st.host && <span className="pill p-n">{st.host.backups.free_gb} غيغابايت فارغة</span>}</div>
       {st.host?.backup_fallback && <div className="msg warn">قرص النسخ الاحتياطي غير موصول؛ تُحفظ النسخ مؤقتًا داخل مجلد البيانات.</div>}
       {st.last_error && <div className="msg err">لم يُطبَّق آخر تغيير: {st.last_error.message}</div>}
       {st.pending ? (
@@ -102,6 +102,52 @@ function StorageCard() {
 }
 
 /** قوائم العقوبات والأشخاص ذوي النفوذ لمطابقة أسماء القضايا. */
+type Folders = { root: string; encrypt_case_files: boolean; reorganizing: boolean; external_backup: boolean;
+  folders: { key: string; name: string; purpose: string; path: string; files: number; bytes: number }[] };
+
+const size = (b: number) => b >= 2 ** 30 ? `${(b / 2 ** 30).toFixed(1)} غيغابايت` : b >= 2 ** 20 ? `${(b / 2 ** 20).toFixed(1)} ميغابايت` : b ? `${Math.max(1, Math.round(b / 1024))} كيلوبايت` : "فارغ";
+
+/** «أين ملفاتي؟»: مجلد لكل وظيفة باسمه العربي، وعدد ملفاته وحجمه، وخيار تشفير وثائق التحقيقات. */
+function FilesCard() {
+  const [d, setD] = useState<Folders | null>(null);
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => api<Folders>("/api/admin/storage/folders").then(setD).catch((e) => setMsg(e.message));
+  useEffect(() => { load(); }, []);
+  if (!d) return <section className="card"><h2>أين ملفاتي؟</h2>{msg && <div className="msg err">{msg}</div>}</section>;
+  const toggle = async (on: boolean) => {
+    if (!window.confirm(on
+      ? "ستُشفَّر ملفات وثائق التحقيقات كلها على القرص. تبقى أسماؤها مفهومة، لكنها لن تُفتح من ويندوز مباشرة، بل من داخل البرنامج فقط. هل تتابع؟"
+      : "سيُفك تشفير ملفات وثائق التحقيقات كلها، فتُفتح من ويندوز مباشرة ويقرؤها كل من يصل إلى هذا الجهاز. هل تتابع؟")) return;
+    setBusy(true); setMsg("");
+    try {
+      const r = await api<{ converted: number }>("/api/admin/storage/case-encryption", { method: "PUT", body: { on } });
+      setMsg(`${on ? "فُعّل التشفير" : "أُلغي التشفير"}. حُوّلت ${r.converted} وثيقة.`); await load();
+    } catch (x) { setMsg((x as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card">
+      <h2>أين ملفاتي؟</h2>
+      <span className="mu">كل الملفات داخل مجلد البيانات، في مجلد لكل وظيفة. اسم كل ملف: النوع أو المصدر، ثم عنوان مختصر، ثم 8 خانات من بصمته، ثم التاريخ.</span>
+      {d.reorganizing && <div className="msg warn">يُعاد ترتيب ملفات الإصدار السابق بأسمائها الجديدة في الخلفية. قد يستغرق ذلك دقائق.</div>}
+      {d.folders.map((f) => (
+        <div className="row" key={f.key}>
+          <span className="f"><b>{f.name}</b><br /><span className="mu">{f.purpose}</span><br /><code dir="ltr" style={{ fontSize: 12 }}>{f.path}</code></span>
+          <span className="pill p-n">{f.files ? `${f.files} ملف · ${size(f.bytes)}` : "فارغ"}</span>
+        </div>
+      ))}
+      {!d.external_backup && <div className="msg warn">النسخة الاحتياطية اليومية تحفظ قاعدة البيانات فقط. ملفات هذه المجلدات لا تُنسخ إلا إذا حدّدت مجلد نسخ على قرص خارجي من «التخزين» أعلاه.</div>}
+      <h3>وثائق التحقيقات</h3>
+      <label className="chk"><input type="checkbox" aria-label="تشفير وثائق التحقيقات" checked={d.encrypt_case_files} disabled={busy} onChange={(e) => toggle(e.target.checked)} />
+        تشفير ملفات وثائق التحقيقات على القرص</label>
+      <span className="mu">{d.encrypt_case_files
+        ? "مفعّل: الأسماء مفهومة، والملفات لا تُفتح إلا من داخل البرنامج. من يصل إلى الجهاز يرى الأسماء ولا يقرأ المحتوى."
+        : "غير مفعّل (الافتراضي): الوثائق تُفتح من ويندوز مباشرة، ويقرؤها كل من يصل إلى هذا الجهاز."}</span>
+      {msg && <div className="msg" role="status">{msg}</div>}
+    </section>
+  );
+}
+
 function Sanctions() {
   const [name, setName] = useState("OpenSanctions");
   const [file, setFile] = useState<File | null>(null);

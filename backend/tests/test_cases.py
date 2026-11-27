@@ -65,7 +65,7 @@ def test_case30_twenty_scanned_pdfs(admin):
 
 
 def test_encryption_at_rest_and_custody_chain(admin):
-    from marsad.core.paths import ensure_storage
+    from marsad.core.paths import data_file
     from marsad.db import get_db
     from marsad.models.cases import CaseDocument, CustodyLog
 
@@ -74,9 +74,23 @@ def test_encryption_at_rest_and_custody_chain(admin):
     upload(admin, cid, [("note.txt", secret.encode())])
     db = next(get_db())
     d = db.query(CaseDocument).filter_by(case_id=cid).one()
-    on_disk = (ensure_storage().archive / d.path).read_bytes()
-    assert secret.encode() not in on_disk and "الأفق".encode() not in on_disk
+    # الافتراضي (قرار غيث): الوثيقة مقروءة من ويندوز في «التحقيقات/اسم التحقيق» باسم يدل عليها
+    assert d.path.startswith("التحقيقات/قضية سرية/وثيقة 01 - note - ") and d.path.endswith(".txt")
+    assert d.sha256[:8] in d.path
+    assert data_file(d.path).read_bytes() == secret.encode()
+    # وما في قاعدة البيانات يبقى مشفّرًا
     assert "الأفق" not in d.text_enc and "الأفق" not in d.meta_enc and "note.txt" not in d.filename_enc
+    db.close()
+    # المدير يفعّل التشفير: الملف نفسه يصير مشفّرًا باسمه المفهوم، ويُزال المقروء
+    plain = data_file(d.path)
+    r = admin.put("/api/admin/storage/case-encryption", json={"on": True}).json()
+    assert r == {"encrypt_case_files": True, "converted": 1}
+    db = next(get_db())
+    d = db.query(CaseDocument).filter_by(case_id=cid).one()
+    assert d.path.endswith(".txt.enc") and not plain.exists()
+    on_disk = data_file(d.path).read_bytes()
+    assert secret.encode() not in on_disk and "الأفق".encode() not in on_disk
+    assert admin.get("/api/admin/storage/folders").json()["encrypt_case_files"] is True
     path = d.path
     db.close()  # SQLite: لا نُبقي قراءة مفتوحة أثناء كتابات الخادم
     # الفتح والتنزيل يُسجَّلان، والملف المنزّل مطابق لبصمته
@@ -99,8 +113,10 @@ def test_encryption_at_rest_and_custody_chain(admin):
     db.close()
     assert admin.get(f"/api/cases/{cid}/custody").json()["verify"]["ok"] is False
     # تغيير الملف على القرص يُكشف عند القراءة
-    (ensure_storage().archive / path).write_bytes(key.encrypt(b"tampered"))
+    data_file(path).write_bytes(key.encrypt(b"tampered"))
     assert admin.get(f"/api/cases/{cid}/documents/1/file").status_code == 409
+    # إلغاء التشفير يعيد الوثائق مقروءة (والملف المعبوث به يوقف التحويل برسالة)
+    assert admin.put("/api/admin/storage/case-encryption", json={"on": False}).status_code == 422
 
 
 def test_docx_xlsx_and_privacy(admin, make_client):
