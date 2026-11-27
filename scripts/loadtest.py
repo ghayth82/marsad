@@ -163,7 +163,7 @@ def meili_wait(base: str, h: dict, http, since: str | None = None) -> None:
         if not r.get("results"):
             if since is None:
                 return
-            failed = http.get(f"{base}/tasks", headers=h, params={"statuses": "failed", "limit": 3, "afterEnqueuedAt": since}).json().get("results")
+            failed = http.get(f"{base}/tasks", headers=h, params={"statuses": "failed", "limit": 3, "afterEnqueuedAt": since, "types": "documentAdditionOrUpdate,settingsUpdate"}).json().get("results")
             if failed:
                 raise SystemExit(f"فشلت فهرسة Meilisearch: {failed[0].get('error')}")
             return
