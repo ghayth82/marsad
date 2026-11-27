@@ -85,7 +85,7 @@ export function Rumors() {
               <span className="pill p-warn">{r.count} مقابل {r.expected}</span></div>
           ))}
         </section>
-        <a className="btn adv" href="/api/claims/export/claimreview">تصدير ClaimReview</a>
+        <a className="btn" href="/api/claims/export/claimreview">تصدير ClaimReview</a>
         <a className="btn" href="/api/claims/export/csv">تصدير CSV</a>
       </div>
     </div>

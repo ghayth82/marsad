@@ -50,10 +50,6 @@ export function Shell() {
             </div>
           );
         })}
-        <button className="nav-mode" onClick={() => setAp({ mode: ap.mode === "simple" ? "full" : "simple" })} aria-pressed={ap.mode === "simple"}
-          data-hint="العرض المبسّط يخفي الخيارات المتقدمة النادرة (التصدير بصيغ تقنية، الربط البرمجي…). اضغط للتبديل.">
-          {ap.mode === "simple" ? (en ? "Simple view ✓" : "عرض مبسّط ✓") : (en ? "Simple view" : "عرض مبسّط")}
-        </button>
       </nav>
       <div className="main">
         <header className="top">

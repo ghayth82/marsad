@@ -373,7 +373,7 @@ function Board() {
           </section>
         ))}
       </div>
-      <section className="card adv">
+      <section className="card">
         <h2>المهل بالساعات</h2>
         <span className="mu">تبدأ المهلة من الإسناد. يصل المُسند إليه تنبيه حين يبقى ربعها، ويصله مع المحرّرين تنبيه حين تُتجاوز.</span>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>

@@ -36,7 +36,6 @@ class Appearance(BaseModel):
     contrast: bool = False
     density: Literal["comfortable", "compact"] = "comfortable"
     hints: bool = True  # تلميحات الواجهة: تُخفى وتُظهر متى شاء المستخدم
-    mode: Literal["full", "simple"] = "full"  # العرض المبسّط يخفي الخيارات المتقدمة
 
 
 class Preferences(BaseModel):
@@ -64,7 +63,16 @@ def _merge(base: dict, over: dict) -> dict:
     return out
 
 
+def _drop_retired(data: dict) -> dict:
+    """يحذف مفاتيح أُلغيت (العرض المبسّط) من تفضيلات محفوظة قديمًا، حتى لا تُرفض."""
+    ap = (data or {}).get("appearance")
+    if isinstance(ap, dict) and "mode" in ap:
+        data = {**data, "appearance": {k: v for k, v in ap.items() if k != "mode"}}
+    return data
+
+
 def validate(data: dict) -> dict:
+    data = _drop_retired(data)
     prefs = Preferences.model_validate(data)
     unknown = [c for c in prefs.dashboard if c not in DASHBOARD_CARDS]
     if unknown:
@@ -92,7 +100,7 @@ def effective_preferences(db: Session, user: User) -> dict:
 def update_preferences(db: Session, user: User, changes: dict) -> dict:
     own = db.get(UserPreference, user.id)
     current = own.data if own else {}
-    candidate = _merge(current, changes)
+    candidate = _drop_retired(_merge(current, changes))
     validate(_merge(Preferences().model_dump(mode="json"), candidate))  # يرفض القيم الخاطئة
     if own is None:
         db.add(UserPreference(user_id=user.id, data=candidate))

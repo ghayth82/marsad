@@ -146,8 +146,6 @@ code.blk{display:block;padding:10px;background:var(--sf2);border:1px solid var(-
 label.fld[data-h]::after{content:none}
 .term{border-bottom:1px dotted var(--mu);cursor:help}
 .mode-btn.on{background:var(--acs);border-color:var(--ac)}
-/* العرض المبسّط: تُخفى الخيارات المتقدمة */
-.app[data-mode="simple"] .adv{display:none!important}
 /* البداية والجولة */
 .start-card{border-color:var(--ac)}
 .goal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}

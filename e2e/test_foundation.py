@@ -72,12 +72,6 @@ def main() -> int:
         expect(admin.locator(".page-intro")).to_have_count(0)  # الاختيار محفوظ
         admin.get_by_role("button", name="التلميحات").click()
         expect(admin.locator(".page-intro")).to_be_visible()
-        # العرض المبسّط يخفي الخيارات المتقدمة
-        expect(admin.get_by_text("تصدير القائمة CSV")).to_be_visible()
-        admin.get_by_role("button", name="عرض مبسّط").click()
-        expect(admin.get_by_text("تصدير القائمة CSV")).to_be_hidden()
-        admin.get_by_role("button", name="عرض مبسّط").click()
-        expect(admin.get_by_text("تصدير القائمة CSV")).to_be_visible()
         # زر «؟» يفتح شرح هذه الشاشة، والرئيسية فيها «ابدأ من هنا» و«ماذا تريد أن تفعل؟»
         admin.get_by_role("button", name="شرح هذه الشاشة").click()
         expect(admin).to_have_url(re.compile(r"/help\?topic=sources"))

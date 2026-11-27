@@ -38,10 +38,9 @@ export type Appearance = {
   contrast: boolean;
   density: "comfortable" | "compact";
   hints: boolean;
-  mode: "full" | "simple";
 };
 
-export const DEFAULT_APPEARANCE: Appearance = { font: "noto", leading: "comfy", read_scale: 1, read_width: "medium", accent: "teal", contrast: false, density: "comfortable", hints: true, mode: "full" };
+export const DEFAULT_APPEARANCE: Appearance = { font: "noto", leading: "comfy", read_scale: 1, read_width: "medium", accent: "teal", contrast: false, density: "comfortable", hints: true };
 
 export type Prefs = {
   pattern: "a" | "b" | "c";
