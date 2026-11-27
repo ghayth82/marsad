@@ -199,13 +199,10 @@ def import_bundle(engine: Engine, src: Path, passphrase: str, force: bool = Fals
                         shutil.copyfileobj(fsrc, fdst)
                     files += 1
     try:  # فهرس البحث يُعاد بناؤه إن كان Meilisearch مضبوطًا
-        from marsad.models.monitoring import Item
-        from marsad.search import index_items
+        from marsad.search import rebuild
 
         with Session(engine) as s:
-            items = list(s.scalars(select(Item)))
-            for k in range(0, len(items), 500):
-                index_items(items[k:k + 500])
+            rebuild(s)
     except Exception:
         pass
     return {"tables": manifest["tables"], "files": files, "from": manifest["created_at"]}

@@ -54,6 +54,7 @@ jobs:
           Get-ChildItem $dst -Recurse -Include *.pdb | Remove-Item -Force
           & "$dst/bin/postgres.exe" --version
           if (-not (Test-Path "$dst/share/extension/vector.control")) { throw "pgvector لم يُثبَّت" }
+          if (-not (Test-Path "$dst/share/extension/pg_trgm.control")) { throw "pg_trgm غير موجود: فهارس البحث النصي لن تُنشأ" }
 
       - name: Meilisearch
         env: { GH_TOKEN: "${{ github.token }}" }

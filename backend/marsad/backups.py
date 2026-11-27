@@ -480,8 +480,9 @@ def restore(engine: Engine, path: str, items: list[str], mode: str = "merge", pa
                         if "id" in t.columns and t.columns["id"].primary_key and t.columns["id"].autoincrement is not False:
                             conn.execute(text(f"SELECT setval(pg_get_serial_sequence('{tn}', 'id'), "
                                               f"COALESCE((SELECT MAX(id) FROM {tn}), 0) + 1, false)"))
-            if "monitor" in dbs:
-                _reindex(engine)
+            kinds = [k for g, k in (("monitor", "items"), ("claims", "claims"), ("stories", "entities"), ("stories", "stories")) if g in dbs]
+            if kinds:
+                _reindex(engine, kinds)
 
         if file_groups:
             root = ensure_storage().root
@@ -512,15 +513,12 @@ def restore(engine: Engine, path: str, items: list[str], mode: str = "merge", pa
         z.close()
 
 
-def _reindex(engine: Engine) -> None:
+def _reindex(engine: Engine, kinds: list[str] | None = None) -> None:
     try:
-        from marsad.models.monitoring import Item
-        from marsad.search import index_items
+        from marsad.search import rebuild
 
         with Session(engine) as s:
-            items = list(s.scalars(select(Item)))
-            for k in range(0, len(items), 500):
-                index_items(items[k:k + 500])
+            rebuild(s, kinds)
     except Exception:  # noqa: BLE001 — البحث يعود من القاعدة إن لم يكن Meilisearch متاحًا
         pass
 

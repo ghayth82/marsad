@@ -1,0 +1,52 @@
+name: loadtest
+# قياس الأداء مع حجم بيانات كبير (يدوي): أخبار مصطنعة على مراحل، ثم المساحة وزمن البحث والتصفح.
+on:
+  workflow_dispatch:
+    inputs:
+      phases:
+        description: "مراحل عدد الأخبار مفصولة بفواصل"
+        default: "100000,500000,1000000"
+jobs:
+  loadtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - name: إفساح مساحة على القرص
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h / /mnt
+      - name: PostgreSQL 16
+        run: |
+          sudo mkdir -p /mnt/pg && sudo chmod 777 /mnt/pg
+          docker run -d --name pg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=marsad_load -p 5432:5432 \
+            -v /mnt/pg:/var/lib/postgresql/data postgres:16 -c shared_buffers=512MB -c max_wal_size=8GB -c checkpoint_timeout=30min
+          for i in $(seq 1 30); do docker exec pg pg_isready -U postgres && break; sleep 2; done
+      - name: Meilisearch (الإصدار نفسه المضمَّن في المُثبِّت)
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          tag=$(gh api repos/meilisearch/meilisearch/releases --paginate -q '.[].tag_name' | grep -E '^v1\.12\.[0-9]+$' | head -1)
+          echo "Meilisearch $tag"
+          gh release download "$tag" -R meilisearch/meilisearch -p meilisearch-linux-amd64 -O /mnt/meilisearch
+          chmod +x /mnt/meilisearch
+          mkdir -p /mnt/meili
+          nohup /mnt/meilisearch --db-path /mnt/meili/data.ms --dump-dir /mnt/meili/dumps --http-addr 127.0.0.1:7700 \
+            --master-key loadtest-master-key-0123456789 --no-analytics --env production > /mnt/meili/log.txt 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:7700/health && break; sleep 1; done
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install ./backend numpy
+      - name: القياس
+        run: |
+          python scripts/loadtest.py --db "postgresql+psycopg://postgres:test@127.0.0.1:5432/marsad_load" \
+            --meili http://127.0.0.1:7700 --meili-key loadtest-master-key-0123456789 \
+            --phases "${{ inputs.phases }}" --out loadtest-report.md
+          cat loadtest-report.md >> "$GITHUB_STEP_SUMMARY"
+          df -h /mnt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: loadtest-report
+          path: |
+            loadtest-report.md
+            loadtest-report.json

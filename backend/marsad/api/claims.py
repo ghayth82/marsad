@@ -58,13 +58,21 @@ def claim_row(c: Claim) -> dict:
 
 @router.get("/claims")
 def claims(q: str = "", status: str | None = None, limit: int = 50, _: User = Depends(viewer), db: Session = Depends(get_db)):
+    from marsad import search
+
+    limit = min(limit, 300)
+    hit = search.search_ids("claims", q, filters=[f'status = "{status}"'] if status else None,
+                            sort=["created_ts:desc"], limit=limit) if q.strip() else None
+    if hit is not None:  # Meilisearch: سريع مع أي عدد من الادّعاءات
+        found = {c.id: c for c in db.scalars(select(Claim).where(Claim.id.in_(hit[0])))}
+        return [claim_row(found[i]) for i in hit[0] if i in found]
     stmt = select(Claim).order_by(Claim.created_at.desc())
     if status:
         stmt = stmt.where(Claim.status == status)
     if q:
         for t in normalize_ar(q).split():
             stmt = stmt.where(Claim.norm.contains(t))
-    return [claim_row(c) for c in db.scalars(stmt.limit(min(limit, 300)))]
+    return [claim_row(c) for c in db.scalars(stmt.limit(limit))]
 
 
 class ClaimIn(BaseModel):

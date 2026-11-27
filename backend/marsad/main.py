@@ -31,6 +31,9 @@ def _bootstrap() -> None:
         seed_builtin_roles(db)
         db.commit()
         _schedule_data_upgrades(db)
+        from marsad import search
+
+        search.rebuild_if_needed()
     finally:
         db.close()
 

@@ -11,6 +11,8 @@ target_metadata = Base.metadata
 
 def include_object(obj, name, type_, reflected, compare_to):
     """جداول الطابور تديرها مكتبته، لا ترحيلاتنا."""
+    if type_ == "index" and reflected and compare_to is None and name.endswith("_trgm"):
+        return False  # فهارس الثلاثيات للبحث (ترحيل 0012) خاصة بـ PostgreSQL ولا تُعرَّف في النماذج
     return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate"))
 
 

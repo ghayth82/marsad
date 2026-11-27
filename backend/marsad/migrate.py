@@ -43,6 +43,8 @@ def pending_diff(engine: Engine) -> list:
 
 
 def _ours(obj, name, type_, reflected, compare_to):
+    if type_ == "index" and reflected and compare_to is None and name.endswith("_trgm"):
+        return False  # فهارس الثلاثيات للبحث (ترحيل 0012) خاصة بـ PostgreSQL ولا تُعرَّف في النماذج
     return not (type_ == "table" and reflected and compare_to is None and name.startswith("procrastinate"))
 
 

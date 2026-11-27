@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import event, JSON, Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from marsad.db import Base, UTCDateTime, utcnow
@@ -17,6 +17,7 @@ class Story(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(Text, default="")
+    norm: Mapped[str] = mapped_column(Text, default="", server_default="")  # العنوان موحّدًا للبحث (يُضبط تلقائيًا)
     first_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     item_count: Mapped[int] = mapped_column(Integer, default=0)
     source_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -61,3 +62,11 @@ class Statement(Base):
     said_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
     is_promise: Mapped[bool] = mapped_column(Boolean, default=False)
     extra: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+@event.listens_for(Story, "before_insert")
+@event.listens_for(Story, "before_update")
+def _story_norm(_mapper, _conn, target: Story) -> None:
+    from marsad.text import normalize_ar
+
+    target.norm = normalize_ar(target.title or "")

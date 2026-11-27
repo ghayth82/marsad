@@ -35,11 +35,19 @@ def stories(limit: int = 40, min_items: int = 1, min_sources: int = 1, q: str = 
     if exclude:
         stmt = stmt.where(Story.id != exclude)
     stmt = stmt.order_by(Story.updated_at.desc())
-    if q.strip():
+    if q.strip():  # كل القصص، لا أحدث ألفين فقط: Meilisearch، وإلا العنوان الموحّد في القاعدة
+        from marsad import search
         from marsad.text import normalize_ar
 
-        nq = normalize_ar(q)
-        rows = [s for s in db.scalars(stmt.limit(2000)) if nq in normalize_ar(s.title)][:min(limit, 200)]
+        filt = [f"item_count >= {int(min_items)}", f"source_count >= {int(min_sources)}"]
+        hit = search.search_ids("stories", q, filters=filt, sort=["updated_ts:desc"], limit=min(limit, 200) + 1)
+        if hit is not None:
+            found = {s.id: s for s in db.scalars(select(Story).where(Story.id.in_(hit[0])))}
+            rows = [found[i] for i in hit[0] if i in found and i != exclude][:min(limit, 200)]
+        else:
+            for t in normalize_ar(q).split():
+                stmt = stmt.where(Story.norm.contains(t))
+            rows = list(db.scalars(stmt.limit(min(limit, 200))))
     else:
         rows = db.scalars(stmt.limit(min(limit, 200)))
     return [{"id": s.id, "title": s.title, "item_count": s.item_count, "source_count": s.source_count,
@@ -106,7 +114,13 @@ def entities(q: str = "", kind: str | None = None, limit: int = 50, _: User = De
     cnt = func.count(EntityMention.id).label("n")
     stmt = select(Entity, cnt).join(EntityMention, EntityMention.entity_id == Entity.id).group_by(Entity.id)
     if q:
-        stmt = stmt.where(Entity.norm.contains(normalize_ar(q)))
+        from marsad import search
+
+        hit = search.search_ids("entities", q, filters=[f'kind = "{kind}"'] if kind else None, limit=200)
+        if hit is not None:  # الاسم وكل أسمائه البديلة
+            stmt = stmt.where(Entity.id.in_(hit[0] or [-1]))
+        else:
+            stmt = stmt.where(Entity.norm.contains(normalize_ar(q)))
     if kind:
         stmt = stmt.where(Entity.kind == kind)
     rows = db.execute(stmt.order_by(cnt.desc()).limit(min(limit, 200))).all()
