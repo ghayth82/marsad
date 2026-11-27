@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
+
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -97,8 +100,24 @@ def effective_preferences(db: Session, user: User) -> dict:
     return validate(merged)
 
 
+_locks: dict[int, threading.Lock] = {}
+_locks_guard = threading.Lock()
+
+
+@contextmanager
+def user_lock(db: Session, user_id: int):
+    """حفظ تفضيلات المستخدم الواحد واحدًا بعد الآخر. بدونه، تغييران خلال لحظة يقرأ كلاهما التفضيلات قبل حفظ
+    الآخر، فيمحو الثاني الأول. يُمسك حتى الإيداع، ويبدأ القراءة من جديد (SQLite يثبّت لقطة من أول قراءة في الطلب)."""
+    with _locks_guard:
+        lock = _locks.setdefault(user_id, threading.Lock())
+    db.rollback()  # لا ننتظر الدور ونحن نمسك قراءة مفتوحة: في SQLite تمنع حفظ صاحب الدور فيتعطل الاثنان
+    with lock:
+        db.rollback()
+        yield
+
+
 def update_preferences(db: Session, user: User, changes: dict) -> dict:
-    own = db.get(UserPreference, user.id)
+    own = db.get(UserPreference, user.id, with_for_update=True)  # PostgreSQL: يقفل الصف إن تعددت العمليات
     current = own.data if own else {}
     candidate = _drop_retired(_merge(current, changes))
     validate(_merge(Preferences().model_dump(mode="json"), candidate))  # يرفض القيم الخاطئة

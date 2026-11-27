@@ -173,16 +173,18 @@ def get_prefs(user: User = Depends(current_user), db: Session = Depends(get_db))
 
 @router.patch("/me/preferences")
 def patch_prefs(changes: dict, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    try:
-        out = prefs.update_preferences(db, user, changes)
-    except ValueError as e:
-        raise HTTPException(422, str(e)) from None
-    db.commit()
+    with prefs.user_lock(db, user.id):
+        try:
+            out = prefs.update_preferences(db, user, changes)
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from None
+        db.commit()
     return out
 
 
 @router.delete("/me/preferences")
 def reset_prefs(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    out = prefs.reset_preferences(db, user)
-    db.commit()
+    with prefs.user_lock(db, user.id):
+        out = prefs.reset_preferences(db, user)
+        db.commit()
     return out
