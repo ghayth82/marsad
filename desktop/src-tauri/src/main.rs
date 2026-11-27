@@ -203,6 +203,7 @@ fn start(l: &Layout, report: &dyn Fn(&str)) -> Result<Running, String> {
     report("تجهيز مجلدات البيانات…");
     let mut prep = Command::new(&server);
     prep.arg("prepare");
+    prep.env("PYTHONUTF8", "1").env("PYTHONIOENCODING", "utf-8");
     base_env(&mut prep);
     let out = hidden(&mut prep).output().map_err(|e| format!("تعذّر تشغيل الخادم الداخلي: {e}"))?;
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
@@ -310,6 +311,8 @@ fn start(l: &Layout, report: &dyn Fn(&str)) -> Result<Running, String> {
         format!("postgresql+psycopg://marsad:{}@127.0.0.1:{pg_port}/marsad", s("pg_password")),
     )
     .env("MARSAD_STATIC_DIR", l.resources.join("web"))
+    .env("PYTHONUTF8", "1")
+    .env("PYTHONIOENCODING", "utf-8")
     .env("MARSAD_MEILI_URL", &meili_url)
     .env("MARSAD_MEILI_KEY", s("meili_key"))
     .env("MARSAD_SECRET_KEY", s("secret_key"))

@@ -16,7 +16,18 @@ import os
 import sys
 
 
+def _utf8_streams() -> None:
+    """غلاف سطح المكتب يقرأ المخرجات UTF-8، وويندوز يجعلها cp1252 حين تُحوَّل إلى ملف أو أنبوب،
+    فتفشل طباعة أي مسار عربي (مثل «النسخ الاحتياطي»). نفرض UTF-8 على المخرجين."""
+    for s in (sys.stdout, sys.stderr):
+        try:
+            s.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_streams()
     parser = argparse.ArgumentParser(prog="marsad-server")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare")
