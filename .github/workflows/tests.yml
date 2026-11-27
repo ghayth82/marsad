@@ -21,7 +21,7 @@ jobs:
         run: cd backend && python -m pytest -q
         env: { MARSAD_TEST_DATABASE_URL: "postgresql+psycopg://postgres:test@localhost:5432/marsad_test" }
       - name: تجهيز المجلدات على جهاز نظيف
-        run: ./scripts/start.sh --prepare-only && test -d data/archive && test -d data/backups/db
+        run: ./scripts/start.sh --prepare-only && test -d data/archive && test -d "data/التحقيقات" && test -d "data/النسخ الاحتياطي/db"
       - name: صياغة docker-compose
         run: cp .env.example .env && sed -i 's/^\(POSTGRES_PASSWORD\|MEILI_MASTER_KEY\)=$/\1=x/' .env && docker compose --env-file .env config -q
   frontend-e2e:
