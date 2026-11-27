@@ -1,4 +1,5 @@
 // «ابدأ من هنا»: ثلاث خطوات للمستخدم الجديد تُشطب حين تُنجز، و«ماذا تريد أن تفعل؟» يوصلك إلى الشاشة الصحيحة.
+import { Icon } from "./Icon";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
@@ -40,14 +41,14 @@ export function GetStarted({ onTour }: { onTour: () => void }) {
 }
 
 const GOALS: { perm: string; icon: string; text: string; to: string }[] = [
-  { perm: "sources.manage", icon: "📡", text: "أتابع موقعًا أو قناة", to: "/sources" },
-  { perm: "monitor.view", icon: "📰", text: "أقرأ آخر الأخبار", to: "/live" },
-  { perm: "claims.create", icon: "🔎", text: "أتحقق من خبر أو شائعة", to: "/rumors" },
-  { perm: "labs.use", icon: "🖼️", text: "أتحقق من صورة أو فيديو", to: "/media-lab" },
-  { perm: "labs.use", icon: "🎙️", text: "أتحقق من تسجيل صوتي", to: "/audio-lab" },
-  { perm: "monitor.view", icon: "👥", text: "أبحث عن شخص أو جهة", to: "/entities" },
-  { perm: "cases.create", icon: "🗂️", text: "أعمل على تحقيق", to: "/cases" },
-  { perm: "monitor.view", icon: "🗄️", text: "أحفظ صفحة قبل أن تُحذف", to: "/tools/archive" },
+  { perm: "sources.manage", icon: "sources", text: "أتابع موقعًا أو قناة", to: "/sources" },
+  { perm: "monitor.view", icon: "live", text: "أقرأ آخر الأخبار", to: "/live" },
+  { perm: "claims.create", icon: "rumors", text: "أتحقق من خبر أو شائعة", to: "/rumors" },
+  { perm: "labs.use", icon: "media", text: "أتحقق من صورة أو فيديو", to: "/media-lab" },
+  { perm: "labs.use", icon: "audio", text: "أتحقق من تسجيل صوتي", to: "/audio-lab" },
+  { perm: "monitor.view", icon: "entities", text: "أبحث عن شخص أو جهة", to: "/entities" },
+  { perm: "cases.create", icon: "cases", text: "أعمل على تحقيق", to: "/cases" },
+  { perm: "monitor.view", icon: "archive", text: "أحفظ صفحة قبل أن تُحذف", to: "/tools/archive" },
 ];
 
 export function Goals() {
@@ -58,7 +59,7 @@ export function Goals() {
     <section className="card" aria-labelledby="goals-h">
       <h2 id="goals-h" data-hint="اختر ما تريد فعله فيأخذك البرنامج إلى الشاشة المناسبة.">ماذا تريد أن تفعل؟</h2>
       <div className="goal-grid">
-        {goals.map((x) => <Link key={x.text} className="goal" to={x.to}><span aria-hidden="true">{x.icon}</span>{x.text}</Link>)}
+        {goals.map((x) => <Link key={x.text} className="goal" to={x.to}><Icon name={x.icon} />{x.text}</Link>)}
       </div>
     </section>
   );

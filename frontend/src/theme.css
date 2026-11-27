@@ -161,3 +161,7 @@ label.fld[data-h]::after{content:none}
 .nav-group{margin-bottom:4px}
 .nav-title{padding:5px 8px 2px}
 .nav .logo{width:38px;height:38px;margin-bottom:4px}
+.ic{display:block;flex:none}
+.nav-ic{display:grid;place-items:center;opacity:.85}
+.nav a.active .nav-ic{opacity:1}
+.goal .ic{color:var(--ac,currentColor)}

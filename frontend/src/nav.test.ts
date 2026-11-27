@@ -28,12 +28,12 @@ describe("الأقسام حسب الأدوار", () => {
     expect(visibleSections(a, "researcher").map((s) => s.path)).not.toContain("/ratings");
   });
 
-  it("الشائعات والادّعاء بند واحد في القائمة، وبطاقة الادّعاء تبقى مسموحة", () => {
+  it("الشائعات والادّعاء بندان مستقلان في القائمة", () => {
     const a: Access = { roles: [], overrides: [], effective: ["claims.create", "monitor.view"] };
     expect(visibleSections(a, null).map((s) => s.path)).toContain("/claims");
     const labels = navSections(a, null).map((s) => s.ar);
-    expect(labels).toContain("الادّعاءات والشائعات");
-    expect(labels).not.toContain("بطاقة الادّعاء");
+    expect(labels).toContain("الشائعات");
+    expect(labels).toContain("الادّعاء");
   });
 
   it("الإدارة تظهر لمن يملك إدارة المستخدمين وحدها", () => {

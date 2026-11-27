@@ -88,7 +88,7 @@ export function Help() {
             <Link className="btn sm" to="/?tour=1" data-hint="جولة من خمس محطات تعرّفك بالبرنامج في دقيقة.">أعد الجولة التعريفية</Link>
             <a className="btn sm" href="#glossary">قاموس المصطلحات</a>
           </div>
-          <span className="mu">في أي شاشة: قف على أي زر أو عنوان ليظهر شرحه. زر 💡 في الأعلى يخفي التلميحات ويظهرها، وزر ؟ يفتح شرح الشاشة التي أنت فيها.</span>
+          <span className="mu">في أي شاشة: قف على أي زر أو عنوان ليظهر شرحه. زر المصباح في الأعلى يخفي التلميحات ويظهرها، وزر ؟ يفتح شرح الشاشة التي أنت فيها.</span>
         </section>
         {shown.map((s) => (
           <section key={s.id} id={s.id} className="card" style={topic === s.id ? { borderColor: "var(--ac)" } : undefined}>

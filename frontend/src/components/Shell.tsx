@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { DEFAULT_APPEARANCE, type Prefs } from "../api";
 import { GROUPS, navSections, SECTIONS } from "../nav";
+import { Icon } from "./Icon";
 import { HintLayer } from "../hints/HintLayer";
 import { PAGE_INTRO } from "../hints/data";
 import { Tour } from "./Tour";
@@ -43,7 +44,7 @@ export function Shell() {
               {items.map((x) => (
                 <NavLink key={x.path} to={x.path} end={x.path === "/"}
                   className={({ isActive }) => (isActive || (x.path === "/rumors" && loc.pathname.startsWith("/claims")) ? "on" : "")}>
-                  <span className="nav-ic" aria-hidden="true">{x.icon}</span><span className="nav-tx">{en ? x.en : x.ar}</span>
+                  <span className="nav-ic"><Icon name={x.icon} /></span><span className="nav-tx">{en ? x.en : x.ar}</span>
                 </NavLink>
               ))}
             </div>
@@ -75,7 +76,7 @@ export function Shell() {
             </label>
           )}
           <button className={`mode-btn${ap.hints ? " on" : ""}`} onClick={() => setAp({ hints: !ap.hints })} aria-pressed={ap.hints}
-            aria-label={en ? "Hints" : "التلميحات"} title={ap.hints ? (en ? "Hide hints" : "إخفاء التلميحات") : (en ? "Show hints" : "إظهار التلميحات: شرح قصير لكل زر وعنوان عند الوقوف عليه")}>💡</button>
+            aria-label={en ? "Hints" : "التلميحات"} title={ap.hints ? (en ? "Hide hints" : "إخفاء التلميحات") : (en ? "Show hints" : "إظهار التلميحات: شرح قصير لكل زر وعنوان عند الوقوف عليه")}><Icon name="hint" /></button>
           <button className="mode-btn" onClick={() => nav(`/help?topic=${intro?.[2] ?? "start"}`)} aria-label={en ? "Help for this screen" : "شرح هذه الشاشة"}
             title={en ? "Help for this screen" : "شرح هذه الشاشة من الدليل"}>؟</button>
           <button className="mode-btn" onClick={() => savePrefs({ theme: dark ? "light" : "dark", pattern: "c" })}

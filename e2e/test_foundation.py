@@ -52,9 +52,10 @@ def main() -> int:
         expect(admin.get_by_role("dialog")).to_have_count(0)
         admin.reload()
         expect(admin.get_by_role("dialog")).to_have_count(0)
-        # القائمة مجموعات بعناوين، والشائعات والادّعاء بند واحد
+        # القائمة مجموعات بعناوين وأيقونات مرسومة، والأسماء كما كانت
+        expect(admin.locator("nav.nav a svg.ic")).to_have_count(len(nav_items(admin)))
         expect(admin.locator("nav.nav .nav-title")).to_have_text(["أرصد", "أتحقق", "أحقق وأكتب", "أتابع", "الإعداد"])
-        assert "الادّعاءات والشائعات" in nav_items(admin) and "بطاقة الادّعاء" not in nav_items(admin)
+        assert "الشائعات" in nav_items(admin) and "الادّعاء" in nav_items(admin)
         # التلميحات: سطر تعريف الصفحة وفقاعة عند الوقوف، وتُخفى وتُظهر بزر 💡
         admin.goto(f"{BASE}/sources")
         expect(admin.locator(".page-intro")).to_contain_text("هنا تضيف المواقع والقنوات")
@@ -135,14 +136,14 @@ def main() -> int:
         sara.get_by_role("button", name="تخطَّ الجولة").click()
         expect(sara.get_by_role("dialog")).to_have_count(0)
         items = nav_items(sara)
-        assert "الادّعاءات والشائعات" in items and "تقييم المواقع" in items and "الإدارة" not in items, items
+        assert "الادّعاء" in items and "التقييم" in items and "الإدارة" not in items, items
         # واجهة سارة مستقلة عن واجهة المدير (المدير غيّر لونه وكثافته، وسارة على الافتراضي)
         expect(sara.locator(".app")).to_have_attribute("data-accent", "teal")
 
         # 5) «عرض كـ» الباحث يخفي أقسام الصحفي
         sara.get_by_label("عرض كـ").select_option("researcher")
-        expect(sara.locator("nav.nav a", has_text="الصور والفيديو")).to_have_count(0)
-        expect(sara.locator("nav.nav a", has_text="تقييم المواقع")).to_have_count(1)
+        expect(sara.locator("nav.nav a", has_text="الادّعاء")).to_have_count(0)
+        expect(sara.locator("nav.nav a", has_text="التقييم")).to_have_count(1)
         sara.screenshot(path=SHOTS / "04-sara-view-as-researcher.png", full_page=True)
         sara.get_by_label("عرض كـ").select_option("")
 
@@ -154,7 +155,7 @@ def main() -> int:
         expect(admin.get_by_text("حُفظ الاستثناء.")).to_be_visible()
         admin.screenshot(path=SHOTS / "05-admin-user-overrides.png", full_page=True)
         sara.reload()
-        expect(sara.locator("nav.nav a", has_text="تقييم المواقع")).to_have_count(0)
+        expect(sara.locator("nav.nav a", has_text="التقييم")).to_have_count(0)
 
         # 7) المحرّر لا يرى الإدارة، ورابطها المباشر يعيده للرئيسية
         sara.goto(f"{BASE}/admin/users")
