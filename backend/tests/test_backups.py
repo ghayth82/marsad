@@ -167,6 +167,20 @@ def test_schedule_slots():
     assert _slot({"schedule": {"kind": "monthly", "time": "03:00", "day": 28}}, now) == dt(2026, 10, 28, 3, 0, tzinfo=tz)
 
 
+def test_run_marks_running_before_responding(admin, tmp_path, monkeypatch):
+    """الواجهة تتابع الباقة ما دامت «تعمل»؛ فالحالة تُكتب قبل الرد لا حين يبدأ العمل في الخلفية."""
+    from marsad import backups
+
+    dest = tmp_path / "usb"
+    dest.mkdir()
+    p = _pkg(admin, dest, name="سباق", items=["db:ratings"])
+    seen = {}
+    monkeypatch.setattr(backups, "run_package", lambda db, pid: seen.setdefault("status", next(
+        x for x in backups.packages(db) if x["id"] == pid)["last_status"]))
+    assert admin.post(f"/api/admin/backup/packages/{p['id']}/run").status_code == 200
+    assert seen["status"] == "running"
+
+
 def test_due_runs_scheduled_package_once(admin, tmp_path):
     from marsad import backups
     from marsad.db import get_db

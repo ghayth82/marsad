@@ -425,10 +425,14 @@ def backup_run(pid: str, tasks: BackgroundTasks, actor: User = Depends(manage_sy
     from marsad import backups
     from marsad.audit import record
 
-    if not any(p["id"] == pid for p in backups.packages(db)):
+    pkg = next((p for p in backups.packages(db) if p["id"] == pid), None)
+    if pkg is None:
         raise HTTPException(404, "الباقة غير موجودة")
+    if pkg.get("last_status") == "running":
+        raise HTTPException(409, "الباقة تعمل الآن")
     record(db, actor, "backup.run", "backup", pid)
-    db.commit()
+    # «تعمل الآن» قبل الرد، فتتابعها الواجهة حتى تنتهي مهما تأخر بدء العمل في الخلفية
+    backups._set_status(db, pid, last_status="running", last_started_at=datetime.now().astimezone().isoformat())
 
     def job() -> None:
         s = next(get_db())
