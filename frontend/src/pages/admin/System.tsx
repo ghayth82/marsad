@@ -4,7 +4,7 @@ import { useCan } from "../../session";
 
 // داخل برنامج سطح المكتب: نافذة اختيار مجلد وإعادة تشغيل فورية
 type TauriBridge = { core: { invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> } };
-const tauri = (): TauriBridge | undefined => (window as unknown as { __TAURI__?: TauriBridge }).__TAURI__;
+export const tauri = (): TauriBridge | undefined => (window as unknown as { __TAURI__?: TauriBridge }).__TAURI__;
 
 type Disk = { path: string; free_gb: number; total_gb: number; label?: string };
 type Storage = {
@@ -20,7 +20,7 @@ export function Settings() {
   return (
     <div className="cols">
       <div className="grow">{can("system.manage") && <><StorageCard /><FilesCard /></>}</div>
-      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Backups /><Transfer /><TelegramBot /><FactCheckKey /><ReportSchedule /><Sanctions /></>}</div>
+      <div className="side">{can("users.manage") && <FourEyes />}{can("system.manage") && <><Transfer /><TelegramBot /><FactCheckKey /><ReportSchedule /><Sanctions /></>}</div>
       {can("system.manage") && <div className="grow"><SocialProviders /></div>}
     </div>
   );
@@ -323,7 +323,7 @@ function Transfer() {
 }
 
 /** النسخ الاحتياطي: يومي تلقائيًا (الساعة 03:23)، ونسخة فورية، واستعادة بتأكيد مكتوب ونسخة أمان قبلها. */
-function Backups() {
+export function Backups() {
   const [rows, setRows] = useState<{ name: string; size: number; at: string }[]>([]);
   const [sel, setSel] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -334,8 +334,8 @@ function Backups() {
   const run = async (f: () => Promise<string>) => { setBusy(true); setMsg(""); try { setMsg(await f()); load(); } catch (x) { setMsg((x as Error).message); } finally { setBusy(false); } };
   return (
     <section className="card" aria-label="النسخ الاحتياطي">
-      <h2>النسخ الاحتياطي</h2>
-      <span className="mu" style={{ fontSize: 12 }}>نسخة يومية تلقائية في مجلد النسخ (تُحفظ آخر 14). على الخادم: الأمر marsad backup.</span>
+      <h2>النسخة اليومية لقاعدة البيانات</h2>
+      <span className="mu" style={{ fontSize: 12 }}>نسخة تلقائية كل يوم لقاعدة البيانات كاملة داخل مجلد «النسخ الاحتياطي» (تُحفظ آخر 14)، تعمل دائمًا إلى جانب الباقات. على الخادم: الأمر marsad backup.</span>
       <button className="btn sm" disabled={busy} onClick={() => run(async () => { const r = await api<{ name: string }>("/api/admin/backups", { method: "POST" }); return `أُخذت نسخة: ${r.name}`; })}>نسخة الآن</button>
       {rows.length > 0 && (
         <>

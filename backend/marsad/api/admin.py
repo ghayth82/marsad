@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -347,6 +348,158 @@ def storage_case_encryption(body: CaseEncryptionIn, actor: User = Depends(manage
     record(db, actor, "storage.case_encryption", "storage", "", None, {"on": body.on, "converted": n})
     db.commit()
     return {"encrypt_case_files": body.on, "converted": n}
+
+
+# ---------- باقات النسخ الاحتياطي ----------
+
+class PackageIn(BaseModel):
+    name: str
+    items: list[str]
+    dest: str
+    schedule: dict = {}
+    keep: int = 7
+    encrypt: bool = False
+    passphrase: str | None = None
+
+
+def _bk_err(e: Exception) -> HTTPException:
+    return HTTPException(422, str(e))
+
+
+@router.get("/backup/catalog")
+def backup_catalog(_: User = Depends(manage_system), db: Session = Depends(get_db)):
+    from marsad import backups
+
+    return backups.catalog(db)
+
+
+@router.get("/backup/packages")
+def backup_packages(_: User = Depends(manage_system), db: Session = Depends(get_db)):
+    from marsad import backups
+
+    return [backups.public(p) for p in backups.packages(db)]
+
+
+@router.post("/backup/packages")
+def backup_create(body: PackageIn, actor: User = Depends(manage_system), db: Session = Depends(get_db)):
+    from marsad import backups
+    from marsad.audit import record
+
+    try:
+        p = backups.upsert(db, body.model_dump(), None, actor)
+    except backups.BackupError as e:
+        raise _bk_err(e) from None
+    record(db, actor, "backup.package_create", "backup", p["id"], None, backups.public(p))
+    db.commit()
+    return backups.public(p)
+
+
+@router.put("/backup/packages/{pid}")
+def backup_update(pid: str, body: PackageIn, actor: User = Depends(manage_system), db: Session = Depends(get_db)):
+    from marsad import backups
+    from marsad.audit import record
+
+    try:
+        p = backups.upsert(db, body.model_dump(), pid, actor)
+    except backups.BackupError as e:
+        raise _bk_err(e) from None
+    record(db, actor, "backup.package_update", "backup", pid, None, backups.public(p))
+    db.commit()
+    return backups.public(p)
+
+
+@router.delete("/backup/packages/{pid}")
+def backup_delete(pid: str, actor: User = Depends(manage_system), db: Session = Depends(get_db)):
+    from marsad import backups
+    from marsad.audit import record
+
+    backups.remove(db, pid, actor)
+    record(db, actor, "backup.package_delete", "backup", pid)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/backup/packages/{pid}/run")
+def backup_run(pid: str, tasks: BackgroundTasks, actor: User = Depends(manage_system), db: Session = Depends(get_db)):
+    """تشغيل الباقة الآن في الخلفية؛ الواجهة تتابع حالتها من قائمة الباقات."""
+    from marsad import backups
+    from marsad.audit import record
+
+    if not any(p["id"] == pid for p in backups.packages(db)):
+        raise HTTPException(404, "الباقة غير موجودة")
+    record(db, actor, "backup.run", "backup", pid)
+    db.commit()
+
+    def job() -> None:
+        s = next(get_db())
+        try:
+            backups.run_package(s, pid)
+        finally:
+            s.close()
+
+    tasks.add_task(job)
+    return {"started": True}
+
+
+class FolderIn(BaseModel):
+    folder: str
+
+
+@router.post("/backup/list")
+def backup_list(body: FolderIn, _: User = Depends(manage_system)):
+    from marsad import backups
+
+    try:
+        return backups.list_backups(body.folder)
+    except backups.BackupError as e:
+        raise _bk_err(e) from None
+
+
+class InspectIn(BaseModel):
+    path: str
+    passphrase: str | None = None
+
+
+@router.post("/backup/inspect")
+def backup_inspect(body: InspectIn, _: User = Depends(manage_system)):
+    from marsad import backups
+
+    try:
+        return backups.inspect(body.path, body.passphrase)
+    except backups.BackupError as e:
+        raise _bk_err(e) from None
+
+
+class SelectiveRestoreIn(BaseModel):
+    path: str
+    items: list[str]
+    mode: str = "merge"
+    passphrase: str | None = None
+
+
+@router.post("/backup/restore")
+def backup_restore(body: SelectiveRestoreIn, actor: User = Depends(manage_system), db: Session = Depends(get_db)):
+    from marsad import backups
+    from marsad.audit import record
+    from marsad.db import get_engine
+
+    db.close()  # الاسترداد يكتب بمحرك مستقل؛ لا نُبقي قراءة مفتوحة (SQLite)
+    try:
+        r = backups.restore(get_engine(), body.path, body.items, body.mode, body.passphrase)
+    except backups.BackupError as e:
+        raise _bk_err(e) from None
+    s = next(get_db())
+    try:
+        record(s, actor, "backup.restore", "backup", Path(body.path).name, None,
+               {"items": body.items, "mode": body.mode, "files": r["files"], "safety_backup": r["safety_backup"]})
+        s.commit()
+    finally:
+        s.close()
+    added = sum(t["added"] for t in r["tables"].values())
+    updated = sum(t["updated"] for t in r["tables"].values())
+    removed = sum(t["removed"] for t in r["tables"].values())
+    skipped = sum(t["skipped"] for t in r["tables"].values())
+    return {**r, "summary": {"added": added, "updated": updated, "removed": removed, "skipped": skipped, "files": r["files"]}}
 
 
 @router.delete("/storage/pending")

@@ -80,6 +80,8 @@ export function ItemView({ id, compact }: { id: number; compact?: boolean }) {
           <div key={v.version} className="row">
             <span className="f">النسخة {v.version}: {CH[v.change] ?? v.change} · {fmtTime(v.captured_at)}</span>
             {v.archived && <a className="btn sm" href={`/api/items/${it.id}/archive/${v.version}`} target="_blank" rel="noreferrer" title={`بصمة SHA-256: ${v.archive_sha256}`}>النسخة المحفوظة</a>}
+            {v.archived && <a className="btn sm" href={`/api/items/${it.id}/archive/${v.version}/download`} download
+              data-hint="ملف الصفحة الأصلية (.html) كما وصلت، لتقدّمه دليلًا أو تفتحه خارج البرنامج. بصمته تطابق البصمة المسجّلة. يظهر نصها كاملًا، أما الصور والتنسيق فقد لا تظهر.">نزّل الصفحة الأصلية</a>}
           </div>
         ))}
       </section>

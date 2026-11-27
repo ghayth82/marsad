@@ -384,6 +384,22 @@ def item(iid: int, _: User = Depends(view_items), db: Session = Depends(get_db))
     return out
 
 
+@router.get("/items/{iid}/archive/{version}/download")
+def archived_download(iid: int, version: int, _: User = Depends(view_items), db: Session = Depends(get_db)):
+    """الصفحة الأصلية كما وصلت، غير مضغوطة، باسمها المحفوظ (‎.html). بصمتها تطابق البصمة المسجّلة."""
+    from marsad.core import naming
+
+    v = db.scalar(select(ItemVersion).where(ItemVersion.item_id == iid, ItemVersion.version == version)) or _404()
+    if not v.archive_path:
+        raise HTTPException(404, "لا توجد نسخة مؤرشفة لهذه النسخة")
+    raw = gzip.decompress(data_file(v.archive_path).read_bytes())
+    name = Path(v.archive_path).name.removesuffix(".gz")
+    if not name.endswith(".html"):
+        name += ".html"
+    return Response(raw, media_type="application/octet-stream",
+                    headers={**naming.attachment(name), "X-Archive-SHA256": v.archive_sha256, "X-Content-Type-Options": "nosniff"})
+
+
 @router.get("/items/{iid}/archive/{version}")
 def archived(iid: int, version: int, _: User = Depends(view_items), db: Session = Depends(get_db)):
     """النسخة المؤرشفة كما وصلت. تُعرض في وضع معزول: لا سكربتات ولا اتصالات من داخلها."""

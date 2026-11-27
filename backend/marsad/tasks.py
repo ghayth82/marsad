@@ -205,6 +205,20 @@ def alerts_tick(timestamp: int) -> dict:
         db.close()
 
 
+@bp.periodic(cron="*/5 * * * *", periodic_id="backup-packages")
+@bp.task(name="storage.backup_packages", queue="system")
+def backup_packages(timestamp: int) -> int:
+    """كل خمس دقائق: باقات النسخ الاحتياطي التي حان موعدها."""
+    from marsad.backups import run_due
+    from marsad.db import get_db
+
+    db = next(get_db())
+    try:
+        return len(run_due(db))
+    finally:
+        db.close()
+
+
 @bp.periodic(cron="23 3 * * *", periodic_id="daily-backup")
 @bp.task(name="storage.backup", queue="system")
 def daily_backup(timestamp: int) -> str:
